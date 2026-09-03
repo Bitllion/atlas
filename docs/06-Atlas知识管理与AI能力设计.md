@@ -39,9 +39,47 @@ Knowledge → Infrastructure Object
 
 ## 5. 生命周期与质量
 
+### 5.1 状态流转
+
 ```text
-创建 → 审核 → 发布 → 使用 → 更新 → 归档
+DRAFT → UNDER_REVIEW → PUBLISHED → ARCHIVED
+  ↑         ↓               ↓
+  └─────────┴───────────────┘ (可退回修改或归档)
 ```
+
+### 5.2 状态字段设计
+
+基于 `docs/12-Atlas数据库模型设计.md` 的 `knowledge_articles` 表定义：
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| **status** | VARCHAR(50) | NOT NULL | 文章状态（枚举值见下表） |
+| **version** | INT | NOT NULL, DEFAULT 1 | 文章版本号（每次修改递增） |
+| **is_latest** | BOOLEAN | NOT NULL, DEFAULT TRUE | 是否为最新版本（支持版本历史查询） |
+| **author_id** | UUID | FK, NOT NULL | 作者（FK to users） |
+| **reviewer_id** | UUID | FK, NULL | 审核人（FK to users） |
+| **reviewed_at** | TIMESTAMP | NULL | 审核时间 |
+| **published_at** | TIMESTAMP | NULL | 发布时间 |
+| **archived_at** | TIMESTAMP | NULL | 归档时间 |
+
+**状态枚举定义**：
+
+| 状态 | 说明 | 允许操作 |
+| --- | --- | --- |
+| **DRAFT** | 草稿 | 编辑、提交审核、删除 |
+| **UNDER_REVIEW** | 审核中 | 审核通过、审核拒绝（退回 DRAFT） |
+| **PUBLISHED** | 已发布 | 归档、创建新版本（生成新 DRAFT） |
+| **ARCHIVED** | 已归档 | 恢复发布（状态回到 PUBLISHED） |
+
+**状态转换规则**：
+
+- `DRAFT → UNDER_REVIEW`：作者提交审核，设置 `reviewer_id`
+- `UNDER_REVIEW → PUBLISHED`：审核通过，设置 `reviewed_at` 和 `published_at`
+- `UNDER_REVIEW → DRAFT`：审核拒绝，清空 `reviewer_id` 和 `reviewed_at`
+- `PUBLISHED → ARCHIVED`：手动归档，设置 `archived_at`
+- `PUBLISHED → DRAFT`：创建新版本，旧版本 `is_latest = FALSE`，新版本 `version = version + 1`
+
+### 5.3 数据治理
 
 记录来源、作者、创建时间、更新时间、适用范围、版本和可信度。运维关闭后，应支持将 Work Order 转换为 Solution，再沉淀为 Knowledge Article。
 

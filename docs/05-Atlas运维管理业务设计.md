@@ -27,15 +27,96 @@ Atlas 运维不是传统 ITSM，不负责服务器 OS、应用、日志和网络
 
 所有运维记录必须关联 Infrastructure Object。
 
-## 4. 工单模型
+## 4. 工单状态机模型
 
-Work Order 表示一次明确的运维任务，基本属性包括 Work Order ID、Title、Type、Priority、Status、Created Time、Owner、Executor 和 Related Object。
+工单状态（work_orders.status）表示运维任务流转过程，权威定义见 `docs/12-Atlas数据库模型设计.md`，状态枚举如下：
 
-工单类型包括故障、维修、巡检和变更。通用生命周期为：
+| 状态 | 说明 | 适用场景 |
+| --- | --- | --- |
+| CREATED | 已创建 | 工单刚创建，待分派 |
+| ASSIGNED | 已分派 | 工单已指派工程师 |
+| PROCESSING | 处理中 | 工程师正在处理 |
+| WAITING | 等待中 | 等待备件或客户响应（可恢复） |
+| SUSPENDED | 已挂起 | 工单暂停（备件不足/客户拒绝/等待维护窗口） |
+| RESOLVED | 已解决 | 工程师完成处理，待客户验证 |
+| CLOSED | 已关闭 | 客户验证通过，工单完成 |
+| CANCELLED | 已取消 | 派单失败/客户拒绝/申请撤销 |
+| REOPENED | 已重开 | 客户验证不通过或故障复发 |
+
+### 4.1 状态机模型
+
+完整状态转换关系（ASCII 图）：
 
 ```text
-Created → Assigned → Processing → Waiting → Resolved → Closed
+                      CREATED
+                         ↓
+                      ASSIGNED ←─────────────┐
+                         ↓                   │
+                    PROCESSING               │ (重新派单)
+                    ↙    ↓    ↘             │
+              WAITING  RESOLVED  SUSPENDED   │
+                 ↓        ↓         ↓        │
+            PROCESSING  CLOSED  CANCELLED    │
+                         ↓                   │
+                      REOPENED ──────────────┘
 ```
+
+### 4.2 关键路径说明
+
+**正常流转路径**：  
+`CREATED → ASSIGNED → PROCESSING → RESOLVED → CLOSED`
+
+**等待路径**：  
+`PROCESSING → WAITING`（等待备件到货/客户提供信息）→ `PROCESSING`（恢复处理）
+
+**挂起路径**：  
+`ASSIGNED/PROCESSING → SUSPENDED`（备件长期缺货/客户维护窗口未到/客户拒绝进场）  
+`SUSPENDED → ASSIGNED`（重新分配工程师）或 `CANCELLED`（取消工单）
+
+**取消路径**：  
+`CREATED/ASSIGNED → CANCELLED`（派单失败/客户撤销申请/设备已退役）
+
+**重开路径**：  
+`CLOSED → REOPENED`（客户验证不通过/故障复发）→ `ASSIGNED`（重新派单）
+
+### 4.3 状态转换条件
+
+| 转换 | 触发事件 | 操作者 | 记录位置 |
+| --- | --- | --- | --- |
+| CREATED → ASSIGNED | 派单分配工程师 | 调度员/系统 | work_orders.assigned_to |
+| ASSIGNED → PROCESSING | 工程师开始处理 | 工程师 | work_orders.updated_at |
+| PROCESSING → WAITING | 等待备件或客户响应 | 工程师 | work_orders.status + 备注 |
+| WAITING → PROCESSING | 备件到货或客户响应 | 工程师 | work_orders.updated_at |
+| PROCESSING → RESOLVED | 处理完成 | 工程师 | work_orders.resolved_at |
+| RESOLVED → CLOSED | 客户验证通过 | 客户/调度员 | work_orders.closed_at |
+| CLOSED → REOPENED | 客户验证不通过/故障复发 | 客户/系统 | work_orders.updated_at |
+| REOPENED → ASSIGNED | 重新派单 | 调度员 | work_orders.assigned_to |
+| ASSIGNED → SUSPENDED | 挂起工单（备件不足/窗口未到） | 调度员/工程师 | work_orders.status + 备注 |
+| SUSPENDED → ASSIGNED | 恢复派单 | 调度员 | work_orders.assigned_to |
+| SUSPENDED → CANCELLED | 取消挂起工单 | 调度员 | work_orders.updated_at |
+| CREATED/ASSIGNED → CANCELLED | 派单失败/客户撤销 | 调度员/客户 | work_orders.updated_at |
+
+### 4.4 回到 ASSIGNED 重新派单的状态
+
+以下状态可回到 ASSIGNED 重新派单：
+- **REOPENED**：客户验证不通过或故障复发，需重新分配工程师
+- **SUSPENDED**：挂起工单恢复后，可重新分配工程师（原工程师可能已离职或调岗）
+
+**注意**：WAITING 状态不需要重新派单，工程师继续处理即可（WAITING → PROCESSING）。
+
+### 4.5 边界场景处理
+
+**WAITING vs SUSPENDED**：
+- WAITING：短期等待（几小时到1-2天），工程师继续跟进，工单仍属于该工程师
+- SUSPENDED：长期暂停（数天到数周），工单可能重新分配，需要审批恢复
+
+**CANCELLED vs CLOSED**：
+- CANCELLED：工单未完成即终止（客户拒绝/派单失败/申请撤销）
+- CLOSED：工单正常完成并验证通过
+
+**REOPENED 处理**：
+- 若故障复发且原工程师在岗，可直接 REOPENED → PROCESSING（系统自动重新分配给原工程师）
+- 若原工程师不可用，必须 REOPENED → ASSIGNED（人工重新派单）
 
 ## 5. 故障与维修
 
