@@ -1,0 +1,40 @@
+:root {
+  color: #eaf2ff;
+  background: #08101f;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.welcome {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 2rem;
+  background: radial-gradient(circle at top, #173563, #08101f 60%);
+  text-align: center;
+}
+
+.eyebrow {
+  color: #67d6ff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+}
+
+h1 {
+  margin: 0.5rem 0;
+  font-size: clamp(2.5rem, 7vw, 5rem);
+}
+
+.summary {
+  color: #a9bad5;
+  font-size: 1.15rem;
+}
