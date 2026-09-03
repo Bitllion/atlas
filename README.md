@@ -68,9 +68,49 @@ atlas-platform/
 推荐使用 PVE Ubuntu VM、SSH、Codex CLI 和 Docker。开发前必须阅读根目录 `AGENTS.md` 以及 `docs/`。
 
 ```bash
-docker compose up -d
+docker compose up --build -d
+docker compose exec backend alembic upgrade head
+```
+
+服务地址：
+
+- 前端欢迎页：http://localhost:3000
+- 后端健康检查：http://localhost:8000/health
+- Swagger UI：http://localhost:8000/docs
+- PostgreSQL：`localhost:55433`（容器内仍为 `5432`，避免占用宿主机已有端口）
+
+查看服务状态和日志：
+
+```bash
+docker compose ps
+docker compose logs -f
+docker compose down
+```
+
+本地启动后端（Python 3.12，pip 使用清华镜像）：
+
+```bash
 cd backend
-uvicorn app.main:app --reload
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+本地启动前端（npm 使用 npmmirror 镜像）：
+
+```bash
+cd frontend
+npm config set registry https://registry.npmmirror.com
+npm install
+npm run dev
+```
+
+本地运行 Alembic 前，请确保 PostgreSQL 已在 `localhost:55433` 启动：
+
+```bash
+cd backend
+alembic upgrade head
 ```
 
 ## 文档体系
