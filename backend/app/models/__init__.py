@@ -3,6 +3,14 @@
 from importlib import import_module
 
 from app.models.base import Base
+from app.models.asset import (
+    Asset,
+    Deployment,
+    InventoryLocation,
+    InventoryRecord,
+    PurchaseOrder,
+    PurchaseRequest,
+)
 from app.models.core import (
     InfrastructureObject,
     ObjectHistory,
@@ -20,17 +28,23 @@ ImportJob = _import_models.ImportJob
 
 __all__ = [
     "AuditLog",
+    "Asset",
     "Base",
     "IdempotencyKey",
+    "Deployment",
     "InfrastructureObject",
     "ImportError",
     "ImportJob",
+    "InventoryLocation",
+    "InventoryRecord",
     "ObjectHistory",
     "ObjectRelationship",
     "ObjectSpec",
     "ObjectType",
     "Organization",
     "Permission",
+    "PurchaseOrder",
+    "PurchaseRequest",
     "RelationshipType",
     "Role",
     "RolePermission",
