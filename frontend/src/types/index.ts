@@ -34,3 +34,36 @@ export interface ObjectHistory {
 export interface Page<T> { total: number; page: number; page_size: number; items: T[] }
 export interface Items<T> { items: T[] }
 export interface ApiErrorBody { error?: string; code?: string; message?: string; detail?: string | Array<{ msg?: string }> }
+
+export interface ImportError {
+  row: number
+  field: string | null
+  error_type: string
+  message: string
+}
+
+export interface ImportPreview {
+  import_id: string
+  status: string
+  total_count: number
+  success_count: number
+  failed_count: number
+  errors: ImportError[]
+  dry_run: boolean
+}
+
+export interface ImportJob {
+  id: string
+  name: string
+  filename: string
+  format: string
+  total_rows: number
+  success_count: number
+  failed_count: number
+  status: string
+  error_summary: Record<string, unknown> | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  version: number
+}
