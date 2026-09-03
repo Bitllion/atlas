@@ -11,6 +11,10 @@ export default createRouter({
     { path: '/import', name: 'import', component: () => import('../views/ImportView.vue') },
     { path: '/imports', name: 'import-history', component: () => import('../views/ImportHistoryView.vue') },
     { path: '/import/history', redirect: '/imports' },
+    { path: '/assets', name: 'assets', component: () => import('../views/AssetListView.vue') },
+    { path: '/assets/:id', name: 'asset-detail', component: () => import('../views/AssetDetailView.vue') },
+    { path: '/purchase-requests', name: 'purchase-requests', component: () => import('../views/PurchaseRequestsView.vue') },
+    { path: '/inventory', name: 'inventory', component: () => import('../views/InventoryView.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/objects' },
   ],
 })
