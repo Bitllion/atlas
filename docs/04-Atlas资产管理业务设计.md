@@ -131,19 +131,105 @@ maintenance: ATLAS_TEAM
 
 所有权不等于部署位置，使用方不等于维护责任方。
 
-## 10. 资产状态
+## 10. 资产生命周期状态
 
-通用状态：
+资产业务状态（assets.lifecycle_status）用于表达资产从申请到报废的完整流转过程，权威定义见 `docs/12-Atlas数据库模型设计.md`，状态枚举如下：
+
+| 状态 | 说明 | 适用场景 |
+| --- | --- | --- |
+| REQUESTED | 已申请 | 采购申请已创建 |
+| APPROVED | 已批准 | 采购申请已审批通过 |
+| ORDERED | 已下单 | 采购订单已发出 |
+| PURCHASED | 已采购 | 供应商确认订单 |
+| RECEIVED | 已到货 | 设备已到达验收区 |
+| STOCK | 库存中 | 设备已入库 |
+| IN_TRANSIT | 运输中 | 设备已出库运输（出库后→接收前） |
+| DEPLOYING | 部署中 | 设备正在安装 |
+| DEPLOYED | 已部署 | 设备已安装未激活 |
+| ACTIVE | 使用中 | 设备正常运行 |
+| MAINTENANCE | 维护中 | 设备维修或保养 |
+| TRANSFERRED | 已调拨 | 设备转移到其他位置 |
+| RETIRED | 已退役 | 设备报废 |
+| RECOVERED | 退役撤销 | 退役后重新激活（退役后被 Agent 重新发现或取消报废） |
+
+### 10.1 状态机模型
+
+完整状态转换关系（ASCII 图）：
 
 ```text
-PURCHASED → RECEIVED → STOCK → DEPLOYING → ACTIVE
-                                      ↓
-                               MAINTENANCE
-                                      ↓
-                         TRANSFERRED / RETIRED
+REQUESTED → APPROVED → ORDERED → PURCHASED → RECEIVED → STOCK
+                                                           ↓
+                                                      IN_TRANSIT
+                                                           ↓
+                                                       DEPLOYING
+                                                           ↓
+                                                        DEPLOYED
+                                                           ↓
+                          ┌───────────────────────────> ACTIVE <───────────┐
+                          │                                ↓                │
+                          │                           MAINTENANCE           │
+                          │                                ↓                │
+                          │                         TRANSFERRED/RETIRED     │
+                          │                                                 │
+                          └─────────────────────────── RECOVERED ───────────┘
 ```
 
-资产域可扩展库存、待部署、使用中和报废等业务状态；运维域可扩展正常、故障和维修中等状态。
+### 10.2 关键路径说明
+
+**正常采购-部署路径**：  
+`REQUESTED → APPROVED → ORDERED → PURCHASED → RECEIVED → STOCK → IN_TRANSIT → DEPLOYING → DEPLOYED → ACTIVE`
+
+**库存回退路径**：  
+设备从 STOCK 出库运输时进入 IN_TRANSIT，若接收方确认到货并准备安装，进入 DEPLOYING；若部署取消，可回到 STOCK（需记录 inventory_records 中的出入库事务）。
+
+**维护路径**：  
+`ACTIVE → MAINTENANCE`（维修或保养）→ `ACTIVE`（恢复运行）  
+部件更换时，旧部件状态可变更为 `RETIRED`（报废）或 `TRANSFERRED`（返厂/入库），具体路径由 `replacement_events.old_object_disposition` 字段决定（RETIRED/RMA/STOCK/SCRAPPED）。
+
+**调拨路径**：  
+`ACTIVE/STOCK → TRANSFERRED`（调拨至其他位置）→ `STOCK`（接收方入库）或 `DEPLOYING`（直接部署）
+
+**退役与撤销路径**：  
+`ACTIVE/MAINTENANCE → RETIRED`（设备报废）  
+`RETIRED → RECOVERED`（退役撤销：客户取消报废决策，或 Agent 重新发现设备仍在运行）→ `ACTIVE/STOCK`
+
+### 10.3 状态转换条件
+
+| 转换 | 触发事件 | 需审批 | 记录位置 |
+| --- | --- | --- | --- |
+| REQUESTED → APPROVED | 采购审批通过 | 是 | workflow_instance/purchase_requests |
+| APPROVED → ORDERED | 采购订单发出 | 否 | purchase_orders |
+| PURCHASED → RECEIVED | 供应商发货确认到货 | 否 | assets.received_date |
+| RECEIVED → STOCK | 验收通过入库 | 否 | inventory_records |
+| STOCK → IN_TRANSIT | 出库运输 | 是 | inventory_records |
+| IN_TRANSIT → DEPLOYING | 到达现场开始安装 | 否 | deployments |
+| DEPLOYING → DEPLOYED | 物理安装完成 | 否 | deployments |
+| DEPLOYED → ACTIVE | 设备上线激活 | 否 | objects.status |
+| ACTIVE → MAINTENANCE | 故障或计划维护 | 否 | work_orders |
+| MAINTENANCE → ACTIVE | 维修完成验证通过 | 否 | repair_records |
+| ACTIVE → TRANSFERRED | 调拨申请批准 | 是 | workflow_instance |
+| TRANSFERRED → STOCK | 接收方入库确认 | 否 | inventory_records |
+| ACTIVE → RETIRED | 报废申请批准 | 是 | workflow_instance |
+| RETIRED → RECOVERED | 取消报废或 Agent 重新发现 | 是 | object_history |
+
+### 10.4 边界场景处理
+
+**已接收未部署**：  
+设备验收完成后有两条路径：
+- 直接入库 STOCK（通用场景）
+- 直接运输部署 IN_TRANSIT（紧急项目）
+
+**部件更换旧件处理**：  
+旧部件状态变更由 `replacement_events.old_object_disposition` 决定：
+- RETIRED：直接报废
+- RMA：返厂维修（状态为 MAINTENANCE → RETIRED/RECOVERED）
+- STOCK：回库存
+- SCRAPPED：物理销毁
+
+**退役后重新发现**：  
+当设备状态为 RETIRED 时，若 Agent 仍能采集到设备数据（说明设备未物理移除），系统应：
+1. 生成告警：设备已标记退役但仍在运行
+2. 人工确认：是否取消退役（RETIRED → RECOVERED → ACTIVE）或更新位置信息（设备可能已转移）
 
 ## 11. 维保、调拨与报废
 
