@@ -8,6 +8,9 @@ export default createRouter({
     { path: '/objects/new', name: 'object-create', component: () => import('../views/ObjectFormView.vue') },
     { path: '/objects/:id', name: 'object-detail', component: () => import('../views/ObjectDetailView.vue') },
     { path: '/objects/:id/edit', name: 'object-edit', component: () => import('../views/ObjectFormView.vue') },
+    { path: '/import', name: 'import', component: () => import('../views/ImportView.vue') },
+    { path: '/imports', name: 'import-history', component: () => import('../views/ImportHistoryView.vue') },
+    { path: '/import/history', redirect: '/imports' },
     { path: '/:pathMatch(.*)*', redirect: '/objects' },
   ],
 })
