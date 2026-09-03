@@ -35,6 +35,40 @@ export interface Page<T> { total: number; page: number; page_size: number; items
 export interface Items<T> { items: T[] }
 export interface ApiErrorBody { error?: string; code?: string; message?: string; detail?: string | Array<{ msg?: string }> }
 
+export type AssetLifecycleStatus = 'REQUESTED' | 'APPROVED' | 'ORDERED' | 'PURCHASED' | 'RECEIVED' | 'STOCK' | 'IN_TRANSIT' | 'DEPLOYING' | 'DEPLOYED' | 'ACTIVE' | 'MAINTENANCE' | 'TRANSFERRED' | 'RETIRED' | 'RECOVERED'
+export interface AssetObjectSummary {
+  id: string; name: string; object_type_id: string; serial_number: string | null; model: string | null
+  status: string; deployed_location_id: string | null
+}
+export interface Asset {
+  id: string; object_id: string; asset_number: string; lifecycle_status: AssetLifecycleStatus
+  purchase_request_id: string | null; purchase_order_id: string | null; purchase_date: string | null
+  received_date: string | null; vendor: string | null; contract_number: string | null
+  warranty_start_date: string | null; warranty_end_date: string | null; warranty_provider: string | null
+  service_level: string | null; cost: string | number | null; currency: string | null
+  owner_org_id: string | null; operator_org_id: string | null; maintainer_org_id: string | null
+  inventory_location_id: string | null; version: number; created_at: string; updated_at: string
+  object: AssetObjectSummary
+}
+export interface AssetDetail extends Asset {
+  spec: Record<string, unknown>; inventory_location: InventoryLocation | null; deployment: Deployment | null
+}
+export interface LifecycleEvent { event_type: string; occurred_at: string; details: Record<string, unknown> }
+export interface InventoryLocation {
+  id: string; name: string; warehouse: string; shelf: string | null; location_code: string
+  organization_id?: string | null; description?: string | null; created_at?: string
+}
+export interface InventoryLocationPayload { name: string; warehouse: string; shelf?: string | null; location_code: string; organization_id?: string | null; description?: string | null }
+export interface Deployment { id: string; location_id: string; deployment_type: string; status: string; acceptance_status: string; deployed_by: string | null; deployed_at: string | null; notes: string | null }
+export interface PurchaseItem { object_type_id: string; quantity: number; model?: string | null; unit_budget?: number | null; vendor?: string | null }
+export interface PurchaseRequest {
+  id: string; request_number: string; title: string; object_type_id: string; model: string | null
+  quantity: number; estimated_cost: string | number | null; currency: string | null; justification: string | null
+  preferred_vendor: string | null; items: PurchaseItem[]; status: string; requester_id: string
+  approved_by: string | null; approved_at: string | null; rejected_by: string | null; rejected_at: string | null
+  rejection_reason: string | null; created_at: string; updated_at: string
+}
+
 export interface ImportError {
   row: number
   field: string | null

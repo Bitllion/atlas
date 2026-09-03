@@ -12,4 +12,5 @@ export const objectApi = {
   relations: (params: { source_object_id?: string; target_object_id?: string }) => apiClient.get<Items<Relationship>>('/relationships', { params }),
   types: () => apiClient.get<Items<ObjectType>>('/object-types'),
   relationshipTypes: () => apiClient.get<Items<RelationshipType>>('/relationship-types'),
+  racks: () => apiClient.get<Page<InfrastructureObject>>('/objects', { params: { object_type: 'RACK', page: 1, page_size: 200 } }),
 }
