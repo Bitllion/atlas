@@ -1,0 +1,165 @@
+# ============================================================
+# Atlas Platform .gitignore
+# 技术栈：Python(FastAPI) / Vue3 + TypeScript / Go Agent / Docker & K8s
+# ============================================================
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# 测试与覆盖率
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+
+# ---------- Node / 前端 ----------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm/
+.pnpm-store/
+
+# 构建产物
+dist/
+dist-ssr/
+build/
+out/
+.output/
+.vite/
+.vite-opt-cache/
+.cache/
+*.local
+
+# 前端类型与编辑器数据
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+
+# ---------- Go (采集 Agent) ----------
+# 二进制产物
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/vendor/
+go.sum.license
+*.test
+*.out
+
+# ---------- 环境变量与密钥 ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.yaml
+secrets.yml
+*.secret
+
+# ---------- 数据库 ----------
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.dump
+*.sql.gz
+# 数据库本地数据目录
+data/
+.pgdata/
+postgres-data/
+mysql-data/
+
+# ---------- 部署 / 容器 / 编排 ----------
+docker-compose.override.yml
+docker-compose.local.yml
+*.kubeconfig
+kubeconfig
+k8s/local/
+overlays/local/
+# Helm 渲染产物与依赖
+charts/*.tgz
+charts/*/charts/
+.helm/
+
+# ---------- 日志与运行时 ----------
+logs/
+log/
+*.log
+*.log.*
+pids/
+*.pid
+*.seed
+*.pid.lock
+nohup.out
+.DS_Store
+Thumbs.db
+
+# ---------- IDE / 编辑器 ----------
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.example.json
+*.swp
+*.swo
+*~
+*.sublime-workspace
+
+# ---------- AI / Agent 工具本地状态 ----------
+.codex/
+.claude/
+.aider*
+.cursor/
+.workbuddy/
+.qodo/
+
+# ---------- 备份与临时 ----------
+*.bak
+*.tmp
+*.temp
+*.orig
+*~
