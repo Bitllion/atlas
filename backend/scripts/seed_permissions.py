@@ -43,6 +43,7 @@ PERMISSIONS = {
     "admin.manage": ("admin", "manage", "管理用户、组织与系统数据"),
     "dashboard.read": ("dashboard", "read", "查看运营总览"),
     "search.read": ("search", "read", "使用全局搜索"),
+    "quality.read": ("quality", "read", "查看数据质量中心"),
 }
 
 ROLE_DESCRIPTIONS = {
