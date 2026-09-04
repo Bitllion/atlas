@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 from app.database.session import SessionLocal
-from app.models import Organization, User
+from app.models import Organization, Role, User, UserRole
 
 
 @pytest.fixture(scope="module")
@@ -16,6 +16,9 @@ def user_headers():
         db.flush()
         user = User(username=f"asset-user-{marker}", email=f"{marker}@example.test", password_hash="test", organization_id=organization.id)
         db.add(user)
+        db.flush()
+        admin_role = db.query(Role).filter(Role.name == "admin").one()
+        db.add(UserRole(user_id=user.id, role_id=admin_role.id, granted_by=user.id))
         db.commit()
         db.refresh(user)
         return {"X-User-Id": str(user.id)}

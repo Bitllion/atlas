@@ -2,6 +2,9 @@
 
 from uuid import uuid4
 
+from app.database.session import SessionLocal
+from app.models import Role, User, UserRole
+
 HEADERS = {"X-User-Id": "7c17910d-850b-4a4b-bf93-e556984edab3"}
 
 
@@ -115,6 +118,10 @@ def test_attachment_upload_download_roundtrip(client):
         },
     )
     assert user_response.status_code == 201, user_response.text
+    with SessionLocal.begin() as db:
+        user = db.get(User, user_response.json()["id"])
+        admin_role = db.query(Role).filter(Role.name == "admin").one()
+        db.add(UserRole(user_id=user.id, role_id=admin_role.id, granted_by=user.id))
     headers = {"X-User-Id": user_response.json()["id"]}
     article_response = client.post(
         "/api/v1/knowledge/articles",

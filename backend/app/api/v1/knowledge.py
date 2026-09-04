@@ -11,22 +11,20 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.config.settings import settings
 from app.core.exceptions import ServiceError
-from app.core.security import actor_id, get_current_user_optional, require_current_user
+from app.core.security import actor_id, get_current_user_optional, require_permission
 from app.models import ArticleAttachment, KnowledgeArticle, User
 from app.schemas.knowledge import ArticleCreate, ArticleStatus, ArticleType, ArticleUpdate, ObjectLinks
 from app.services import knowledge as service
 
-router = APIRouter(
-    prefix="/knowledge", tags=["knowledge"], dependencies=[Depends(require_current_user)]
-)
+router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
 
-@router.post("/articles", status_code=status.HTTP_201_CREATED)
+@router.post("/articles", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("knowledge.write"))])
 def create_article(payload: ArticleCreate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.article_out(service.create(db, payload, actor_id(user)))
 
 
-@router.get("/articles")
+@router.get("/articles", dependencies=[Depends(require_permission("knowledge.read"))])
 def list_articles(article_type: ArticleType | None = Query(default=None, alias="type"), article_status: ArticleStatus | None = Query(default=None, alias="status"), page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200), db: Session = Depends(get_db)):
     filters = [KnowledgeArticle.deleted_at.is_(None), KnowledgeArticle.is_latest.is_(True)]
     if article_type:
@@ -38,27 +36,27 @@ def list_articles(article_type: ArticleType | None = Query(default=None, alias="
     return {"total": total, "page": page, "page_size": page_size, "items": [service.article_out(item) for item in items]}
 
 
-@router.get("/articles/{article_id}")
+@router.get("/articles/{article_id}", dependencies=[Depends(require_permission("knowledge.read"))])
 def get_article(article_id: UUID, db: Session = Depends(get_db)):
     return service.detail(db, service.active_article(db, article_id))
 
 
-@router.put("/articles/{article_id}")
+@router.put("/articles/{article_id}", dependencies=[Depends(require_permission("knowledge.write"))])
 def update_article(article_id: UUID, payload: ArticleUpdate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.article_out(service.update(db, service.active_article(db, article_id), payload, actor_id(user)))
 
 
-@router.post("/articles/{article_id}/publish")
+@router.post("/articles/{article_id}/publish", dependencies=[Depends(require_permission("knowledge.write"))])
 def publish_article(article_id: UUID, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.article_out(service.publish(db, service.active_article(db, article_id), actor_id(user)))
 
 
-@router.post("/articles/{article_id}/attachments", status_code=status.HTTP_201_CREATED)
+@router.post("/articles/{article_id}/attachments", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("knowledge.write"))])
 def upload_attachment(article_id: UUID, file: UploadFile = File(...), db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.attachment_out(service.upload(db, service.active_article(db, article_id), file, actor_id(user)))
 
 
-@router.get("/articles/{article_id}/attachments/{attachment_id}/download")
+@router.get("/articles/{article_id}/attachments/{attachment_id}/download", dependencies=[Depends(require_permission("knowledge.read"))])
 def download_attachment(article_id: UUID, attachment_id: UUID, db: Session = Depends(get_db)):
     service.active_article(db, article_id)
     attachment = db.scalar(
@@ -85,17 +83,17 @@ def download_attachment(article_id: UUID, attachment_id: UUID, db: Session = Dep
     return FileResponse(target, filename=attachment.file_name)
 
 
-@router.post("/articles/{article_id}/link-objects")
+@router.post("/articles/{article_id}/link-objects", dependencies=[Depends(require_permission("knowledge.write"))])
 def link_objects(article_id: UUID, payload: ObjectLinks, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return {"items": service.link_objects(db, service.active_article(db, article_id), payload, actor_id(user))}
 
 
-@router.delete("/articles/{article_id}/link-objects")
+@router.delete("/articles/{article_id}/link-objects", dependencies=[Depends(require_permission("knowledge.write"))])
 def unlink_objects(article_id: UUID, payload: ObjectLinks, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return {"items": service.unlink_objects(db, service.active_article(db, article_id), payload, actor_id(user))}
 
 
-@router.get("/articles/{article_id}/links")
+@router.get("/articles/{article_id}/links", dependencies=[Depends(require_permission("knowledge.read"))])
 def get_links(article_id: UUID, db: Session = Depends(get_db)):
     article = service.active_article(db, article_id)
     return {"items": service.links_out(db, article.id)}

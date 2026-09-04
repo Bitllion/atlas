@@ -30,7 +30,11 @@ def auth_user(test_database):
         role = Role(name=f"auth-role-{marker}", description="Authentication test role")
         db.add_all([user, role])
         db.flush()
-        db.add(UserRole(user_id=user.id, role_id=role.id, granted_by=user.id))
+        admin_role = db.query(Role).filter(Role.name == "admin").one()
+        db.add_all([
+            UserRole(user_id=user.id, role_id=role.id, granted_by=user.id),
+            UserRole(user_id=user.id, role_id=admin_role.id, granted_by=user.id),
+        ])
         return {
             "id": str(user.id),
             "username": user.username,
@@ -57,7 +61,7 @@ def test_login_success_returns_token_user_and_roles(client, auth_user):
         "username": auth_user["username"],
         "full_name": "Auth Test User",
         "organization_id": auth_user["organization_id"],
-        "roles": [auth_user["role"]],
+        "roles": ["admin", auth_user["role"]],
     }
 
 
