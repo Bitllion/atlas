@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import ServiceError
 from app.models import Role, User, UserRole, WorkflowDefinition, WorkflowInstance, WorkflowTask
+from app.services.notification import notify
 
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,11 @@ def _create_node_tasks(db: Session, instance: WorkflowInstance, node: dict) -> N
     organization_id = db.scalar(select(User.organization_id).where(User.id == instance.started_by))
     for assignee_id in _assignees(db, node, organization_id):
         db.add(WorkflowTask(instance_id=instance.id, node_id=node["id"], assignee_id=assignee_id))
+        entity_label = "采购单" if instance.entity_type.upper() == "PURCHASE_REQUEST" else instance.entity_type
+        business_label = instance.business_key or str(instance.entity_id)
+        notify(db, assignee_id, "WORKFLOW_TASK", "新的审批任务",
+               f"有新的审批任务:{entity_label} {business_label}",
+               instance.entity_type, instance.entity_id)
 
 
 def _finish(db: Session, instance: WorkflowInstance, status: str) -> None:
