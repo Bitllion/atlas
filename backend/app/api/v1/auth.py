@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ServiceError
-from app.core.security import create_access_token, get_current_user, hash_password, verify_password
+from app.core.security import create_access_token, hash_password, require_current_user, verify_password
 from app.database.session import get_db
 from app.models import Role, User, UserRole
 
@@ -71,14 +71,14 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/me")
-def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def me(user: User = Depends(require_current_user), db: Session = Depends(get_db)):
     return user_out(db, user)
 
 
 @router.post("/change-password")
 def change_password(
     payload: ChangePasswordRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_current_user),
     db: Session = Depends(get_db),
 ):
     if not verify_password(payload.current_password, user.password_hash):

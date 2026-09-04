@@ -116,9 +116,11 @@ def test_dev_header_compatibility_and_bearer_priority(client, auth_user):
         settings.auth_mode = original_mode
 
 
-def test_no_credentials_and_prod_header_only_are_unauthorized(client, auth_user):
+def test_no_credentials_and_prod_header_only_are_unauthorized(
+    client, unauthenticated_client, auth_user
+):
     payload = {"name": f"Unauthorized Org {uuid4().hex}", "org_type": "INTERNAL"}
-    response = client.post("/api/v1/organizations", json=payload)
+    response = unauthenticated_client.post("/api/v1/organizations", json=payload)
     assert response.status_code == 401
     assert response.json()["code"] == "Unauthorized"
 

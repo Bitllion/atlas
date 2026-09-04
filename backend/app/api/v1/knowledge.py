@@ -11,12 +11,14 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.config.settings import settings
 from app.core.exceptions import ServiceError
-from app.core.security import actor_id, get_current_user_optional
+from app.core.security import actor_id, get_current_user_optional, require_current_user
 from app.models import ArticleAttachment, KnowledgeArticle, User
 from app.schemas.knowledge import ArticleCreate, ArticleStatus, ArticleType, ArticleUpdate, ObjectLinks
 from app.services import knowledge as service
 
-router = APIRouter(prefix="/knowledge", tags=["knowledge"])
+router = APIRouter(
+    prefix="/knowledge", tags=["knowledge"], dependencies=[Depends(require_current_user)]
+)
 
 
 @router.post("/articles", status_code=status.HTTP_201_CREATED)

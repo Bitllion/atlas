@@ -9,12 +9,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.core.security import actor_id, get_current_user_optional
+from app.core.security import actor_id, get_current_user_optional, require_current_user
 from app.models import ObjectHistory, ObjectRelationship, ObjectType, RelationshipType, User
 from app.schemas.core import HistoryOut, ObjectCreate, ObjectDetail, ObjectOut, ObjectUpdate, RelationshipCreate, RelationshipOut
 from app.services import core as service
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_current_user)])
 
 
 def context(request: Request) -> tuple[str | None, str | None]:
