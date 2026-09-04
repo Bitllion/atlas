@@ -1,4 +1,4 @@
-:root { color: #172033; background: #f3f5f8; font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; font-synthesis: none; }
+:root { --primary-6: 22, 93, 255; color: #1d2129; background: #f2f3f5; font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; font-synthesis: none; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 1080px; }
 button, input, select, textarea { color: inherit; font: inherit; }
@@ -111,3 +111,157 @@ th, td { padding: 13px 14px; border-bottom: 1px solid #e8ebf0; white-space: nowr
 .checkbox-field { flex-direction: row; align-items: center; }.checkbox-field input { width: 16px; height: 16px; }
 .login-page { display: grid; min-height: 100vh; place-items: center; padding: 32px; background: linear-gradient(135deg, #eef3ff 0%, #f6f8fb 55%, #e9eef8 100%); }.login-card { width: min(420px, 100%); padding: 34px; }.login-header { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }.login-header .brand-mark { flex: 0 0 42px; width: 42px; height: 42px; color: white; font-size: 21px; font-weight: 700; }.login-header h1 { margin: 0; color: #15213a; font-size: 24px; }.login-header p { margin: 5px 0 0; color: #778196; font-size: 12px; }.login-form { display: grid; gap: 18px; }.login-form .button { width: 100%; margin-top: 2px; }.login-error { margin: -4px 0; color: #b8323e; font-size: 13px; }.demo-account { margin: 24px 0 0; padding-top: 18px; border-top: 1px solid #e5e8ee; color: #778196; font-size: 12px; text-align: center; }
 @media (max-width: 1250px) { .metric-grid { grid-template-columns: repeat(3, 1fr); } }
+
+/* Arco console baseline */
+.atlas-layout { min-height: 100vh; background: #f2f3f5; }
+.atlas-sider { position: fixed !important; z-index: 20; inset: 0 auto 0 0; height: 100vh; border-right: 1px solid #e5e6eb; background: #fff !important; box-shadow: 1px 0 4px rgb(0 0 0 / 3%); }
+.atlas-sider .arco-layout-sider-children { display: flex; flex-direction: column; overflow: hidden; }
+.atlas-brand { display: flex; flex: 0 0 64px; width: 100%; align-items: center; gap: 10px; padding: 0 13px; border: 0; border-bottom: 1px solid #f2f3f5; color: #1d2129; background: #fff; }
+.atlas-brand-mark { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; border-radius: 6px; color: #fff; background: #165dff; font-size: 17px; font-weight: 700; }
+.atlas-brand-name { font-size: 20px; font-weight: 700; letter-spacing: .02em; }
+.atlas-menu { flex: 1; overflow-x: hidden; overflow-y: auto; padding: 8px 4px 20px; background: #fff !important; }
+.atlas-menu .arco-menu-item { border-radius: 4px; color: #4e5969; }
+.atlas-menu .arco-menu-selected { color: #165dff !important; background: #e8f3ff !important; font-weight: 500; }
+.atlas-menu .arco-menu-item-group-title { color: #86909c; font-size: 12px; }
+.atlas-main-layout { min-width: 0; margin-left: 220px; transition: margin-left .2s cubic-bezier(.34,.69,.1,1); }
+.atlas-sider-collapsed + .atlas-main-layout { margin-left: 48px; }
+.atlas-header { position: sticky; z-index: 10; top: 0; display: flex; height: 64px; align-items: center; justify-content: space-between; padding: 0 24px 0 16px; border-bottom: 1px solid #e5e6eb; background: #fff; }
+.collapse-button { color: #4e5969 !important; font-size: 18px !important; }
+.header-actions { display: flex; align-items: center; gap: 14px; }
+.header-search { width: 260px; }
+.user-entry { display: flex; align-items: center; gap: 9px; padding: 4px 2px; border: 0; color: #4e5969; background: transparent; text-align: left; }
+.user-entry .arco-avatar { color: #165dff; background: #e8f3ff; font-weight: 600; }
+.user-meta { display: flex; min-width: 84px; flex-direction: column; }
+.user-meta strong { color: #1d2129; font-size: 13px; font-weight: 500; }
+.user-meta small { margin-top: 2px; color: #86909c; font-size: 11px; }
+.notification-panel { width: 340px; }
+.notification-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 12px; border-bottom: 1px solid #e5e6eb; }
+.notification-panel-list { max-height: 400px; overflow-y: auto; }
+.notification-row { display: flex; width: 100%; gap: 10px; padding: 13px 6px; border: 0; border-bottom: 1px solid #f2f3f5; background: #fff; text-align: left; }
+.notification-row:hover, .notification-row.unread { background: #f7f8fa; }
+.notification-dot { flex: 0 0 7px; width: 7px; height: 7px; margin-top: 6px; border-radius: 50%; background: #c9cdd4; }
+.notification-row.unread .notification-dot { background: #165dff; }
+.notification-row > span:last-child { min-width: 0; }
+.notification-row strong, .notification-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notification-row strong { max-width: 295px; color: #1d2129; font-size: 13px; }
+.notification-row small { margin-top: 5px; color: #86909c; font-size: 11px; }
+.atlas-content { min-height: calc(100vh - 64px); background: #f2f3f5; }
+.arco-page { max-width: 1600px; padding: 28px 32px 48px; }
+.arco-page .page-header { align-items: center; margin-bottom: 20px; }
+.arco-page .page-header h1 { margin: 3px 0 6px; color: #1d2129; font-size: 24px; }
+.arco-page .eyebrow { color: #165dff; letter-spacing: .08em; }
+.dashboard-spin { display: block; min-height: 320px; }
+.arco-metric-grid { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.arco-metric-card, .arco-dashboard-grid > .arco-card, .arco-filter-card, .arco-table-card { border-radius: 8px; box-shadow: 0 1px 3px rgb(0 0 0 / 4%); }
+.arco-metric-card .arco-card-body { padding: 20px; }
+.metric-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; color: #4e5969; font-size: 13px; }
+.metric-icon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 8px; font-size: 17px; }
+.metric-icon.blue { color: #165dff; background: #e8f3ff; }.metric-icon.cyan { color: #0fc6c2; background: #e8fffb; }.metric-icon.orange { color: #ff7d00; background: #fff7e8; }.metric-icon.green { color: #00b42a; background: #e8ffea; }.metric-icon.purple { color: #722ed1; background: #f5e8ff; }
+.arco-metric-card small { display: block; margin-top: 6px; color: #86909c; }
+.arco-dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.arco-dashboard-grid .workorder-distribution { grid-column: 1 / -1; }
+.distribution-list { display: grid; gap: 15px; padding: 4px 0; }
+.distribution-list > div { display: grid; grid-template-columns: 110px 1fr 36px; align-items: center; gap: 14px; color: #4e5969; font-size: 13px; }
+.distribution-list strong { color: #1d2129; text-align: right; }
+.status-statistics { display: flex; flex-wrap: wrap; gap: 12px; }
+.status-statistics > div { min-width: 130px; padding: 14px 18px; border-radius: 6px; background: #f7f8fa; }
+.status-statistics > div > span { color: #86909c; font-size: 12px; }
+.arco-filter-card { margin-bottom: 16px; }
+.arco-filter-card .arco-card-body { padding: 16px 20px 0; }
+.arco-filter-card .arco-form-item { margin-right: 16px; margin-bottom: 16px; }
+.arco-filter-card .arco-input-wrapper, .arco-filter-card .arco-select-view { width: 220px; }
+.arco-table-card { overflow: hidden; }
+.arco-table-card > .arco-card-body { padding: 0; }
+.arco-table-card .arco-table-tr { cursor: pointer; }
+.arco-table-card .arco-table-th { background: #f7f8fa; }
+.object-name { font-weight: 500; }
+.table-actions { display: flex; gap: 2px; }
+.arco-pagination { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-top: 1px solid #e5e6eb; color: #86909c; font-size: 13px; }
+.detail-back { margin: -8px 0 12px -12px; }
+.detail-spin { display: block; min-height: 320px; }
+.arco-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.arco-detail-grid > .arco-card, .arco-lifecycle-card, .arco-upload-card, .arco-import-stats > .arco-card { border-radius: 8px; box-shadow: 0 1px 3px rgb(0 0 0 / 4%); }
+.arco-lifecycle-card { margin-top: 16px; }
+.arco-lifecycle-card .arco-timeline { padding-top: 8px; }
+.event-json { overflow: auto; margin: 0; color: #4e5969; font-size: 12px; white-space: pre-wrap; }
+.modal-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.modal-eyebrow { margin: -4px 0 16px; color: #165dff; font-size: 12px; }
+.inline-location-card { margin: 8px 0 16px; background: #f7f8fa; }
+.purchase-items-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.arco-purchase-item { display: grid; grid-template-columns: 2fr 1.5fr 120px 160px 36px; align-items: center; gap: 12px; margin-bottom: 10px; padding: 12px 12px 0; border: 1px solid #e5e6eb; border-radius: 6px; background: #f7f8fa; }
+.arco-upload-card { margin-bottom: 16px; }
+.arco-upload-card > .arco-card-body { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 24px; }
+.upload-copy { display: flex; align-items: center; gap: 14px; }
+.upload-copy h3, .upload-copy p { margin: 0; }.upload-copy p { margin-top: 5px; color: #86909c; font-size: 13px; }
+.upload-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 8px; color: #165dff; background: #e8f3ff; font-size: 21px; }
+.hidden-file-input { display: none; }.template-alert { margin-bottom: 24px; }
+.result-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }.result-title > div { display: flex; align-items: center; gap: 12px; }.result-title h2 { margin: 0; font-size: 20px; }
+.arco-import-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }.arco-import-stats .arco-card-body { padding: 20px 24px; }
+.import-error-alert { margin-bottom: 16px; }.modal-table-total { margin: 12px 0 0; color: #86909c; font-size: 12px; text-align: right; }
+@media (max-width: 1250px) { .arco-metric-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 900px) { .arco-detail-grid, .arco-import-stats { grid-template-columns: 1fr; }.arco-purchase-item { grid-template-columns: 1fr 1fr; }.arco-upload-card > .arco-card-body { align-items: stretch; flex-direction: column; }.modal-form-grid { grid-template-columns: 1fr; } }
+
+/* 运维、搜索与登录页 Arco 统一样式 */
+.arco-form-card, .arco-detail-card, .arco-record-card, .arco-timeline-card, .arco-search-card { border-radius: 8px; box-shadow: 0 1px 3px rgb(0 0 0 / 4%); }
+.arco-form-card > .arco-card-body { padding: 24px; }
+.arco-form-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 8px; }
+.arco-back-link { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 8px; }
+.arco-operations-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); align-items: start; gap: 16px; }
+.arco-detail-card, .arco-record-card { margin-bottom: 16px; }
+.arco-record-card > .arco-card-body { padding: 0; }
+.arco-timeline-card { position: sticky; top: 84px; }
+.arco-timeline-card .arco-card-body { padding: 24px 20px 8px; }
+.timeline-operator { margin: 6px 0 0; color: #86909c; font-size: 12px; }
+.modal-note-form { margin-top: 20px; }
+.search-spin { display: block; min-height: 240px; }
+.search-spin > .arco-empty { padding: 70px 0; border-radius: 8px; background: #fff; }
+.arco-search-groups { display: grid; gap: 16px; }
+.arco-search-card > .arco-card-body { padding: 0; }
+.arco-search-result { cursor: pointer; transition: background .15s ease; }
+.arco-search-result:hover { background: #f7f8fa; }
+.arco-search-result .arco-list-item-meta-title { color: #1d2129; font-weight: 500; }
+.search-pagination { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; color: #86909c; }
+.arco-login-page { position: relative; display: flex; min-height: 100vh; align-items: center; justify-content: center; flex-direction: column; padding: 40px; overflow: hidden; background: linear-gradient(135deg, #f2f7ff 0%, #f7f8fa 48%, #e8f3ff 100%); }
+.arco-login-page::before, .arco-login-page::after { position: absolute; border-radius: 50%; background: rgb(22 93 255 / 6%); content: ''; }
+.arco-login-page::before { top: -180px; right: -110px; width: 520px; height: 520px; }
+.arco-login-page::after { bottom: -220px; left: -130px; width: 560px; height: 560px; }
+.login-brand { z-index: 1; display: flex; align-items: center; gap: 10px; margin-bottom: 24px; color: #1d2129; font-size: 24px; }
+.login-brand .atlas-brand-mark { width: 40px; height: 40px; }
+.arco-login-card { z-index: 1; width: 440px; box-shadow: 0 12px 40px rgb(29 33 41 / 10%); }
+.arco-login-card > .arco-card-body { padding: 40px; }
+.arco-login-header { margin-bottom: 28px; text-align: center; }
+.arco-login-header h1 { margin: 0 0 10px; color: #1d2129; font-size: 26px; }
+.arco-login-header p { margin: 0; color: #86909c; }
+.arco-login-error { margin: -4px 0 20px; }
+.login-copyright { z-index: 1; margin: 24px 0 0; color: #86909c; font-size: 12px; }
+@media (max-width: 1100px) { .arco-operations-grid { grid-template-columns: 1fr; }.arco-timeline-card { position: static; } }
+
+/* UI 批次 2c：对象、知识、质量与管理页 */
+.form-page { max-width: 1180px; }
+.object-stat-grid, .quality-stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+.quality-stat-grid { grid-template-columns: repeat(4, 1fr); }
+.object-stat-grid > .arco-card, .quality-stat-grid > .arco-card, .object-detail-tabs, .quality-tabs-card, .knowledge-ai-card, .article-typography-card, .knowledge-detail-grid > .arco-card { border-radius: 8px; box-shadow: 0 1px 3px rgb(0 0 0 / 4%); }
+.object-detail-tabs { padding: 0 20px 20px; background: #fff; }
+.object-detail-tabs .arco-tabs-content > .arco-tabs-pane > .arco-card > .arco-card-body { padding: 4px 0; }
+.spec-json { max-height: 520px; margin: 0; overflow: auto; color: #4e5969; font: 13px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.history-changes { margin-top: 12px; }
+.change-row { display: grid; grid-template-columns: 160px minmax(0, 1fr) 20px minmax(0, 1fr); gap: 10px; padding: 7px 0; color: #4e5969; font-size: 12px; }
+.change-row span { overflow-wrap: anywhere; white-space: pre-wrap; }
+.object-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+.form-section-title { margin: 0 0 20px; color: #1d2129; font-size: 16px; }
+.knowledge-ai-card { margin-bottom: 16px; }
+.card-title-icon { display: inline-flex; align-items: center; gap: 8px; }
+.ask-actions { display: flex; justify-content: flex-end; margin: 12px 0; }
+.answer-card { margin-top: 14px; background: #f7f8fa; }
+.source-list { margin-top: 18px; }
+.source-list h4 { margin: 0 0 8px; }
+.source-list .arco-list-item-meta { cursor: pointer; }
+.article-typography-card { margin-bottom: 16px; }
+.article-typography-card > .arco-card-body { padding: 28px; }
+.article-body { min-height: 180px; line-height: 1.85 !important; white-space: pre-wrap; overflow-wrap: anywhere; }
+.detail-inline-form { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding-top: 16px; }
+.file-trigger input { display: none; }
+.link-object-form { padding-top: 18px; }
+.quality-tabs-card > .arco-card-body { padding: 0 20px 20px; }
+.quality-filter { padding: 8px 0 0; }
+@media (max-width: 900px) { .object-stat-grid, .quality-stat-grid, .object-form-grid, .knowledge-detail-grid { grid-template-columns: 1fr; }.change-row { grid-template-columns: 1fr; }.arco-page { padding: 20px 16px 40px; } }

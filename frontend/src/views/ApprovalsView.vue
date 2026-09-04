@@ -1,136 +1,17 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { IconRefresh } from '@arco-design/web-vue/es/icon'
 import { workflowApi } from '../api/workflow'
 import type { WorkflowTask } from '../types'
-
-const tasks = ref<WorkflowTask[]>([])
-const loading = ref(false)
-const actioningTaskId = ref<string | null>(null)
-const showCommentModal = ref(false)
-const currentAction = ref<'approve' | 'reject'>('approve')
-const currentTaskId = ref<string>('')
-const comment = ref('')
-
-async function loadTasks() {
-  loading.value = true
-  try {
-    const { data } = await workflowApi.myTasks()
-    tasks.value = data.items.filter(task => task.status === 'PENDING')
-  } finally {
-    loading.value = false
-  }
-}
-
-function openCommentModal(taskId: string, action: 'approve' | 'reject') {
-  currentTaskId.value = taskId
-  currentAction.value = action
-  comment.value = ''
-  showCommentModal.value = true
-}
-
-async function executeAction() {
-  if (!currentTaskId.value) return
-
-  actioningTaskId.value = currentTaskId.value
-  try {
-    if (currentAction.value === 'approve') {
-      await workflowApi.approve(currentTaskId.value, comment.value || undefined)
-    } else {
-      await workflowApi.reject(currentTaskId.value, comment.value || undefined)
-    }
-    showCommentModal.value = false
-    await loadTasks()
-  } finally {
-    actioningTaskId.value = null
-  }
-}
-
-function cancelModal() {
-  showCommentModal.value = false
-  currentTaskId.value = ''
-  comment.value = ''
-}
-
-onMounted(() => {
-  void loadTasks()
-})
+const tasks = ref<WorkflowTask[]>([]), loading = ref(false), actioningTaskId = ref<string | null>(null), showCommentModal = ref(false)
+const currentAction = ref<'approve' | 'reject'>('approve'), currentTaskId = ref(''), comment = ref('')
+async function loadTasks() { loading.value = true; try { tasks.value = (await workflowApi.myTasks()).data.items.filter(task => task.status === 'PENDING') } finally { loading.value = false } }
+function openCommentModal(taskId: string, action: 'approve' | 'reject') { currentTaskId.value = taskId; currentAction.value = action; comment.value = ''; showCommentModal.value = true }
+async function executeAction() { if (!currentTaskId.value) return; actioningTaskId.value = currentTaskId.value; try { if (currentAction.value === 'approve') await workflowApi.approve(currentTaskId.value, comment.value || undefined); else await workflowApi.reject(currentTaskId.value, comment.value || undefined); showCommentModal.value = false; await loadTasks() } finally { actioningTaskId.value = null } }
+function cancelModal() { showCommentModal.value = false; currentTaskId.value = ''; comment.value = '' }
+onMounted(() => { void loadTasks() })
 </script>
-
-<template>
-  <section class="page">
-    <header class="page-header">
-      <div>
-        <p class="eyebrow">WORKFLOW</p>
-        <h1>我的审批</h1>
-        <p class="muted">待处理的审批任务</p>
-      </div>
-      <button class="button" @click="loadTasks">刷新</button>
-    </header>
-
-    <div class="card table-card">
-      <div v-if="loading" class="empty">正在加载…</div>
-      <div v-else-if="tasks.length === 0" class="empty">暂无待审批任务</div>
-      <div v-else class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>任务 ID</th>
-              <th>流程实例 ID</th>
-              <th>节点 ID</th>
-              <th>创建时间</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="task in tasks" :key="task.id">
-              <td class="id-cell">{{ task.id }}</td>
-              <td class="id-cell">{{ task.instance_id }}</td>
-              <td>{{ task.node_id }}</td>
-              <td>{{ new Date(task.created_at).toLocaleString('zh-CN') }}</td>
-              <td class="actions">
-                <button
-                  class="link"
-                  :disabled="actioningTaskId === task.id"
-                  @click="openCommentModal(task.id, 'approve')"
-                >
-                  批准
-                </button>
-                <button
-                  class="link danger"
-                  :disabled="actioningTaskId === task.id"
-                  @click="openCommentModal(task.id, 'reject')"
-                >
-                  驳回
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div v-if="showCommentModal" class="modal-mask" @click.self="cancelModal">
-      <div class="modal card">
-        <header>
-          <h2>{{ currentAction === 'approve' ? '批准审批' : '驳回审批' }}</h2>
-          <button class="modal-close" type="button" @click="cancelModal">×</button>
-        </header>
-        <label>
-          <span>备注（可选）</span>
-          <textarea v-model="comment" rows="4" placeholder="输入审批意见…"></textarea>
-        </label>
-        <footer>
-          <button class="button" type="button" @click="cancelModal">取消</button>
-          <button
-            class="button primary"
-            type="button"
-            :disabled="actioningTaskId !== null"
-            @click="executeAction"
-          >
-            {{ actioningTaskId ? '处理中…' : '确认' }}
-          </button>
-        </footer>
-      </div>
-    </div>
-  </section>
-</template>
+<template><section class="page arco-page"><header class="page-header"><div><p class="eyebrow">工作流</p><h1>我的审批</h1><p class="muted">处理分配给我的待办审批任务</p></div><a-button @click="loadTasks"><template #icon><IconRefresh /></template>刷新</a-button></header>
+<a-card class="arco-table-card" :bordered="false"><a-table :data="tasks" :loading="loading" :pagination="false" row-key="id" :scroll="{ x: 1000 }"><template #columns><a-table-column title="任务 ID" data-index="id" :width="240" ellipsis tooltip /><a-table-column title="流程实例 ID" data-index="instance_id" :width="240" ellipsis tooltip /><a-table-column title="审批节点" data-index="node_id" :width="180" /><a-table-column title="创建时间" :width="180"><template #cell="{ record }">{{ new Date(record.created_at).toLocaleString('zh-CN') }}</template></a-table-column><a-table-column title="操作" fixed="right" :width="150"><template #cell="{ record }"><a-space><a-button type="text" size="small" :disabled="actioningTaskId === record.id" @click="openCommentModal(record.id, 'approve')">批准</a-button><a-button type="text" status="danger" size="small" :disabled="actioningTaskId === record.id" @click="openCommentModal(record.id, 'reject')">驳回</a-button></a-space></template></a-table-column></template><template #empty><a-empty description="暂无待审批任务" /></template></a-table><div class="arco-pagination"><span>共 {{ tasks.length }} 条待办</span></div></a-card>
+<a-modal v-model:visible="showCommentModal" :title="currentAction === 'approve' ? '批准审批' : '驳回审批'" :ok-text="currentAction === 'approve' ? '确认批准' : '确认驳回'" cancel-text="取消" :ok-loading="actioningTaskId !== null" :ok-button-props="{ status: currentAction === 'reject' ? 'danger' : 'normal' }" @ok="executeAction" @cancel="cancelModal"><a-alert :type="currentAction === 'approve' ? 'info' : 'warning'">请确认审批决定，操作完成后将进入下一流程节点。</a-alert><a-form :model="{}" layout="vertical" class="modal-note-form"><a-form-item label="审批意见"><a-textarea v-model="comment" :auto-size="{ minRows: 4, maxRows: 7 }" placeholder="请输入审批意见（可选）" /></a-form-item></a-form></a-modal>
+</section></template>

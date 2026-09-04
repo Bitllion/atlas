@@ -1,238 +1,345 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { assetApi } from '../api/assets'
-import { rememberOperator, savedOperator } from '../api/inventory'
-import { objectApi } from '../api/objects'
-import type { ObjectType, PurchaseItem, PurchaseRequest, WorkflowInstance } from '../types'
-
-const requests = ref<PurchaseRequest[]>([])
-const types = ref<ObjectType[]>([])
-const loading = ref(false)
-const submitting = ref(false)
-const operatorId = ref(savedOperator())
-const workflowInstances = ref<Record<string, WorkflowInstance>>({})
-
-const form = ref({ title: '', preferred_vendor: '', estimated_cost: undefined as number | undefined, justification: '' })
-const items = ref<PurchaseItem[]>([{ object_type_id: '', quantity: 1, model: '', unit_budget: null, vendor: '' }])
-const typeMap = computed(() => Object.fromEntries(types.value.map((item) => [item.id, item.display_name || item.name])))
-const statusName: Record<string, string> = { DRAFT: '草稿', PENDING: '待审批', APPROVED: '已批准', REJECTED: '已驳回', CANCELLED: '已取消' }
-
+import { computed, onMounted, ref } from "vue";
+import { IconDelete, IconPlus } from "@arco-design/web-vue/es/icon";
+import { assetApi } from "../api/assets";
+import { rememberOperator, savedOperator } from "../api/inventory";
+import { objectApi } from "../api/objects";
+import type {
+  ObjectType,
+  PurchaseItem,
+  PurchaseRequest,
+  WorkflowInstance,
+} from "../types";
+const requests = ref<PurchaseRequest[]>([]),
+  types = ref<ObjectType[]>([]),
+  loading = ref(false),
+  submitting = ref(false),
+  createVisible = ref(false),
+  reviewVisible = ref(false),
+  reviewAction = ref<"approve" | "reject">("approve"),
+  reviewing = ref<PurchaseRequest | null>(null),
+  rejectReason = ref(""),
+  operatorId = ref(savedOperator()),
+  workflowInstances = ref<Record<string, WorkflowInstance>>({});
+type PurchaseFormItem = Omit<
+  PurchaseItem,
+  "model" | "unit_budget" | "vendor"
+> & { model: string; unit_budget?: number; vendor: string };
+const emptyItem = (): PurchaseFormItem => ({
+  object_type_id: "",
+  quantity: 1,
+  model: "",
+  unit_budget: undefined,
+  vendor: "",
+});
+const form = ref({
+  title: "",
+  preferred_vendor: "",
+  estimated_cost: undefined as number | undefined,
+  justification: "",
+});
+const items = ref<PurchaseFormItem[]>([emptyItem()]);
+const typeMap = computed(() =>
+  Object.fromEntries(
+    types.value.map((item) => [item.id, item.display_name || item.name]),
+  ),
+);
+const statusName: Record<string, string> = {
+  DRAFT: "草稿",
+  PENDING: "待审批",
+  APPROVED: "已批准",
+  REJECTED: "已驳回",
+  CANCELLED: "已取消",
+};
+const statusColor = (value: string) =>
+  ({
+    DRAFT: "gray",
+    PENDING: "orange",
+    APPROVED: "green",
+    REJECTED: "red",
+    CANCELLED: "gray",
+  })[value] || "gray";
 function addItem() {
-  items.value.push({ object_type_id: '', quantity: 1, model: '', unit_budget: null, vendor: '' })
+  items.value.push(emptyItem());
 }
-
+function itemSummary(parts: PurchaseItem[]) {
+  return parts
+    .map((part) => `${typeMap.value[part.object_type_id] || "未知类型"} × ${part.quantity}`)
+    .join("；");
+}
 function removeItem(index: number) {
-  if (items.value.length > 1) items.value.splice(index, 1)
+  if (items.value.length > 1) items.value.splice(index, 1);
 }
-
 async function load() {
-  loading.value = true
+  loading.value = true;
   try {
-    requests.value = (await assetApi.purchases()).data.items
-
-    // 加载每个采购申请的工作流实例
-    workflowInstances.value = {}
-    for (const request of requests.value) {
-      try {
-        const { data } = await assetApi.getPurchaseWorkflow(request.id)
-        if (data) {
-          workflowInstances.value[request.id] = data
+    requests.value = (await assetApi.purchases()).data.items;
+    workflowInstances.value = {};
+    await Promise.all(
+      requests.value.map(async (request) => {
+        try {
+          const { data } = await assetApi.getPurchaseWorkflow(request.id);
+          if (data) workflowInstances.value[request.id] = data;
+        } catch {
+          /* 没有工作流实例 */
         }
-      } catch {
-        // 该采购申请没有工作流实例
-      }
-    }
+      }),
+    );
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
-
 async function create() {
-  if (!operatorId.value || !form.value.title || items.value.some((item) => !item.object_type_id || item.quantity < 1)) return
-  submitting.value = true
+  if (
+    !operatorId.value ||
+    !form.value.title ||
+    items.value.some((item) => !item.object_type_id || item.quantity < 1)
+  )
+    return;
+  submitting.value = true;
   try {
-    rememberOperator(operatorId.value)
+    rememberOperator(operatorId.value);
     await assetApi.createPurchase({
       ...form.value,
       requester_id: operatorId.value,
-      currency: 'CNY',
+      currency: "CNY",
       items: items.value.map((item) => ({
         ...item,
         model: item.model || null,
         vendor: item.vendor || form.value.preferred_vendor || null,
-        unit_budget: item.unit_budget || null
-      }))
-    })
-    form.value = { title: '', preferred_vendor: '', estimated_cost: undefined, justification: '' }
-    items.value = [{ object_type_id: '', quantity: 1, model: '', unit_budget: null, vendor: '' }]
-    await load()
+        unit_budget: item.unit_budget || null,
+      })),
+    });
+    form.value = {
+      title: "",
+      preferred_vendor: "",
+      estimated_cost: undefined,
+      justification: "",
+    };
+    items.value = [emptyItem()];
+    createVisible.value = false;
+    await load();
   } finally {
-    submitting.value = false
+    submitting.value = false;
   }
 }
-
-async function approve(item: PurchaseRequest) {
-  if (!operatorId.value) return
-  rememberOperator(operatorId.value)
-  await assetApi.approvePurchase(item.id, operatorId.value)
-  await load()
+function openReview(item: PurchaseRequest, kind: "approve" | "reject") {
+  reviewing.value = item;
+  reviewAction.value = kind;
+  rejectReason.value = "";
+  reviewVisible.value = true;
 }
-
-async function reject(item: PurchaseRequest) {
-  if (!operatorId.value) return
-  const reason = window.prompt('请输入驳回原因')
-  if (!reason) return
-  rememberOperator(operatorId.value)
-  await assetApi.rejectPurchase(item.id, operatorId.value, reason)
-  await load()
-}
-
-function getWorkflowStatus(requestId: string): string | null {
-  const instance = workflowInstances.value[requestId]
-  if (!instance) return null
-
-  if (instance.status === 'RUNNING') {
-    return `审批中 (${instance.current_node_id || ''})`
+async function submitReview() {
+  if (
+    !reviewing.value ||
+    !operatorId.value ||
+    (reviewAction.value === "reject" && !rejectReason.value.trim())
+  )
+    return;
+  submitting.value = true;
+  try {
+    rememberOperator(operatorId.value);
+    if (reviewAction.value === "approve")
+      await assetApi.approvePurchase(reviewing.value.id, operatorId.value);
+    else
+      await assetApi.rejectPurchase(
+        reviewing.value.id,
+        operatorId.value,
+        rejectReason.value.trim(),
+      );
+    reviewVisible.value = false;
+    await load();
+  } finally {
+    submitting.value = false;
   }
-  return null
 }
-
-function hasActiveWorkflow(requestId: string): boolean {
-  const instance = workflowInstances.value[requestId]
-  return instance ? instance.status === 'RUNNING' : false
+function workflowStatus(id: string) {
+  const instance = workflowInstances.value[id];
+  return instance?.status === "RUNNING"
+    ? `审批中${instance.current_node_id ? ` · ${instance.current_node_id}` : ""}`
+    : null;
 }
-
+function hasActiveWorkflow(id: string) {
+  return workflowInstances.value[id]?.status === "RUNNING";
+}
 onMounted(async () => {
-  types.value = (await objectApi.types()).data.items
-  await load()
-})
+  types.value = (await objectApi.types()).data.items;
+  await load();
+});
 </script>
-
 <template>
-  <section class="page">
+  <section class="page arco-page">
     <header class="page-header">
       <div>
-        <p class="eyebrow">PROCUREMENT</p>
+        <p class="eyebrow">采购管理</p>
         <h1>采购申请</h1>
         <p class="muted">按基础设施对象类型提交采购清单并完成审批</p>
       </div>
+      <a-button type="primary" @click="createVisible = true"
+        ><template #icon><IconPlus /></template>新建申请</a-button
+      >
     </header>
-
-    <form class="card purchase-form" @submit.prevent="create">
-      <div class="section-title">
-        <h3>新建采购申请</h3>
-      </div>
-      <div class="form-grid purchase-fields">
-        <label>
-          <span>申请标题</span>
-          <input v-model.trim="form.title" required placeholder="例如：采购 10 台 GB300 服务器" />
-        </label>
-        <label>
-          <span>首选供应商</span>
-          <input v-model.trim="form.preferred_vendor" />
-        </label>
-        <label>
-          <span>预算总额（CNY）</span>
-          <input v-model.number="form.estimated_cost" type="number" min="0" />
-        </label>
-        <label>
-          <span>操作用户 ID</span>
-          <input v-model.trim="operatorId" required placeholder="申请人与审批人的用户 UUID" />
-        </label>
-      </div>
-      <label class="wide-field">
-        <span>申请说明</span>
-        <textarea v-model.trim="form.justification" rows="2"></textarea>
-      </label>
-
-      <div class="items-heading">
-        <strong>采购明细</strong>
-        <button class="link" type="button" @click="addItem">+ 添加明细</button>
-      </div>
-      <div class="purchase-items">
-        <div v-for="(item, index) in items" :key="index" class="purchase-item">
-          <label>
-            <span>对象类型</span>
-            <select v-model="item.object_type_id" required>
-              <option value="">请选择</option>
-              <option v-for="type in types" :key="type.id" :value="type.id">
-                {{ type.display_name || type.name }}
-              </option>
-            </select>
-          </label>
-          <label>
-            <span>型号</span>
-            <input v-model.trim="item.model" />
-          </label>
-          <label>
-            <span>数量</span>
-            <input v-model.number="item.quantity" type="number" min="1" required />
-          </label>
-          <label>
-            <span>单价预算</span>
-            <input v-model.number="item.unit_budget" type="number" min="0" />
-          </label>
-          <button class="link danger item-remove" type="button" :disabled="items.length === 1" @click="removeItem(index)">
-            移除
-          </button>
+    <a-card class="arco-table-card" :bordered="false"
+      ><a-table
+        :data="requests"
+        :loading="loading"
+        :pagination="false"
+        row-key="id"
+        :scroll="{ x: 1400 }"
+        ><template #columns
+          ><a-table-column
+            title="申请编号"
+            data-index="request_number"
+            :width="170"
+          /><a-table-column
+            title="标题"
+            data-index="title"
+            :width="210"
+          /><a-table-column title="设备清单" :width="260"
+            ><template #cell="{ record }">{{
+              itemSummary(record.items)
+            }}</template></a-table-column
+          ><a-table-column title="供应商" :width="140"
+            ><template #cell="{ record }">{{
+              record.preferred_vendor || "—"
+            }}</template></a-table-column
+          ><a-table-column title="预算" :width="150"
+            ><template #cell="{ record }">{{
+              record.estimated_cost == null
+                ? "—"
+                : `${record.currency || "CNY"} ${record.estimated_cost}`
+            }}</template></a-table-column
+          ><a-table-column title="状态" :width="100"
+            ><template #cell="{ record }"
+              ><a-tag :color="statusColor(record.status)" bordered>{{
+                statusName[record.status] || record.status
+              }}</a-tag></template
+            ></a-table-column
+          ><a-table-column title="审批状态" :width="200"
+            ><template #cell="{ record }"
+              ><a-tag v-if="workflowStatus(record.id)" color="orange">{{
+                workflowStatus(record.id)
+              }}</a-tag
+              ><span v-else>—</span></template
+            ></a-table-column
+          ><a-table-column title="创建时间" :width="180"
+            ><template #cell="{ record }">{{
+              new Date(record.created_at).toLocaleString("zh-CN")
+            }}</template></a-table-column
+          ><a-table-column title="操作" fixed="right" :width="140"
+            ><template #cell="{ record }"
+              ><a-space
+                v-if="
+                  record.status === 'PENDING' && !hasActiveWorkflow(record.id)
+                "
+                ><a-button
+                  type="text"
+                  size="small"
+                  @click="openReview(record, 'approve')"
+                  >批准</a-button
+                ><a-button
+                  type="text"
+                  status="danger"
+                  size="small"
+                  @click="openReview(record, 'reject')"
+                  >驳回</a-button
+                ></a-space
+              ><span v-else>—</span></template
+            ></a-table-column
+          ></template
+        ><template #empty><a-empty description="暂无采购申请" /></template
+      ></a-table>
+      <div class="arco-pagination">
+        <span>共 {{ requests.length }} 条</span>
+      </div></a-card
+    >
+    <a-modal
+      v-model:visible="createVisible"
+      title="新建采购申请"
+      width="900px"
+      :ok-loading="submitting"
+      ok-text="提交申请"
+      cancel-text="取消"
+      @ok="create"
+      ><a-form :model="form" layout="vertical"
+        ><div class="modal-form-grid">
+          <a-form-item label="申请标题" required
+            ><a-input
+              v-model="form.title"
+              placeholder="例如：采购 10 台 GB300 服务器" /></a-form-item
+          ><a-form-item label="首选供应商"
+            ><a-input v-model="form.preferred_vendor" /></a-form-item
+          ><a-form-item label="预算总额（CNY）"
+            ><a-input-number
+              v-model="form.estimated_cost"
+              :min="0"
+              hide-button /></a-form-item
+          ><a-form-item label="操作用户 ID" required
+            ><a-input v-model="operatorId" placeholder="申请人的用户 UUID"
+          /></a-form-item>
         </div>
-      </div>
-
-      <div class="form-actions">
-        <button class="button primary" :disabled="submitting || !operatorId" type="submit">
-          {{ submitting ? '提交中…' : '提交申请' }}
-        </button>
-      </div>
-    </form>
-
-    <section class="card table-card purchase-list">
-      <div class="section-title">
-        <h3>申请记录</h3>
-        <span class="muted">共 {{ requests.length }} 条</span>
-      </div>
-      <div v-if="loading" class="empty">正在加载…</div>
-      <div v-else-if="!requests.length" class="empty">暂无采购申请</div>
-      <div v-else class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>申请编号</th>
-              <th>标题</th>
-              <th>设备清单</th>
-              <th>供应商</th>
-              <th>预算</th>
-              <th>状态</th>
-              <th>工作流</th>
-              <th>创建时间</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in requests" :key="item.id">
-              <td class="name-cell">{{ item.request_number }}</td>
-              <td>{{ item.title }}</td>
-              <td>{{ item.items.map((part) => `${typeMap[part.object_type_id] || '未知类型'} × ${part.quantity}`).join('；') }}</td>
-              <td>{{ item.preferred_vendor || '—' }}</td>
-              <td>{{ item.estimated_cost == null ? '—' : `${item.currency || 'CNY'} ${item.estimated_cost}` }}</td>
-              <td>
-                <span class="status" :class="item.status.toLowerCase()">{{ statusName[item.status] || item.status }}</span>
-              </td>
-              <td>
-                <span v-if="getWorkflowStatus(item.id)" class="status processing">{{ getWorkflowStatus(item.id) }}</span>
-                <span v-else>—</span>
-              </td>
-              <td>{{ new Date(item.created_at).toLocaleString('zh-CN') }}</td>
-              <td class="actions">
-                <template v-if="item.status === 'PENDING' && !hasActiveWorkflow(item.id)">
-                  <button class="link" :disabled="!operatorId" @click="approve(item)">批准</button>
-                  <button class="link danger" :disabled="!operatorId" @click="reject(item)">驳回</button>
-                </template>
-                <span v-else>—</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+        <a-form-item label="申请说明"
+          ><a-textarea
+            v-model="form.justification"
+            :auto-size="{ minRows: 2, maxRows: 4 }"
+        /></a-form-item>
+        <div class="purchase-items-title">
+          <strong>采购明细</strong
+          ><a-button type="text" @click="addItem"
+            ><template #icon><IconPlus /></template>添加明细</a-button
+          >
+        </div>
+        <div
+          v-for="(item, index) in items"
+          :key="index"
+          class="arco-purchase-item"
+        >
+          <a-form-item label="对象类型" required
+            ><a-select v-model="item.object_type_id" placeholder="请选择"
+              ><a-option
+                v-for="type in types"
+                :key="type.id"
+                :value="type.id"
+                >{{ type.display_name || type.name }}</a-option
+              ></a-select
+            ></a-form-item
+          ><a-form-item label="型号"
+            ><a-input v-model="item.model" /></a-form-item
+          ><a-form-item label="数量" required
+            ><a-input-number v-model="item.quantity" :min="1" /></a-form-item
+          ><a-form-item label="单价预算"
+            ><a-input-number
+              v-model="item.unit_budget"
+              :min="0"
+              hide-button /></a-form-item
+          ><a-button
+            type="text"
+            status="danger"
+            :disabled="items.length === 1"
+            @click="removeItem(index)"
+            ><template #icon><IconDelete /></template
+          ></a-button></div></a-form
+    ></a-modal>
+    <a-modal
+      v-model:visible="reviewVisible"
+      :title="reviewAction === 'approve' ? '批准采购申请' : '驳回采购申请'"
+      :ok-loading="submitting"
+      :ok-button-props="{
+        disabled:
+          !operatorId || (reviewAction === 'reject' && !rejectReason.trim()),
+      }"
+      :ok-text="reviewAction === 'approve' ? '确认批准' : '确认驳回'"
+      cancel-text="取消"
+      @ok="submitReview"
+      ><a-alert :type="reviewAction === 'approve' ? 'info' : 'warning'"
+        >{{ reviewing?.request_number }} · {{ reviewing?.title }}</a-alert
+      ><a-form :model="{}" layout="vertical"
+        ><a-form-item label="操作用户 ID" required
+          ><a-input v-model="operatorId" /></a-form-item
+        ><a-form-item v-if="reviewAction === 'reject'" label="驳回原因" required
+          ><a-textarea
+            v-model="rejectReason"
+            :auto-size="{ minRows: 3, maxRows: 5 }" /></a-form-item></a-form
+    ></a-modal>
   </section>
 </template>
