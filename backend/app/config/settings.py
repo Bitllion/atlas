@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -7,7 +8,10 @@ class Settings(BaseSettings):
     """Runtime settings loaded from environment variables."""
 
     app_name: str = "Atlas API"
-    database_url: str = "postgresql+psycopg://atlas:atlas@localhost:55433/atlas"
+    database_url: str = Field(
+        default="postgresql+psycopg://atlas:atlas@localhost:55433/atlas",
+        validation_alias=AliasChoices("DATABASE_URL", "ATLAS_DATABASE_URL"),
+    )
     log_level: str = "INFO"
     upload_dir: str = "uploads"
 
