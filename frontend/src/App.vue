@@ -6,6 +6,7 @@ import { loadCatalogs } from './stores/catalog'
 import { currentUser, logout } from './stores/auth'
 import { notificationsApi } from './api/notifications'
 import type { Notification } from './types'
+import { navigationFor } from './navigation'
 
 const router = useRouter(), route = useRoute()
 const isLoginPage = computed(() => route.path === '/login')
@@ -15,6 +16,7 @@ const hasRoles = computed(() => Boolean(currentUser.value?.roles?.length))
 const isAdmin = computed(() => currentUser.value?.roles?.some((role) => role.toLowerCase() === 'admin'))
 const displayName = computed(() => currentUser.value?.full_name || currentUser.value?.username || '已登录用户')
 const roleName = computed(() => currentUser.value?.roles?.join('、') || '普通用户')
+const breadcrumbs = computed(() => navigationFor(route).breadcrumbs)
 const selectedKey = computed(() => {
   const path = route.path
   if (path.startsWith('/objects')) return '/objects'
@@ -77,10 +79,14 @@ onBeforeUnmount(() => { window.removeEventListener('atlas-api-error', showError)
           <a-menu-item key="/admin/organizations"><template #icon><a-tooltip content="组织管理" position="right" :disabled="!collapsed"><IconMindMapping /></a-tooltip></template>组织管理</a-menu-item>
         </a-menu-item-group>
       </a-menu>
+      <div class="sider-collapse-area">
+        <a-tooltip :content="collapsed ? '展开侧边栏' : '收起侧边栏'" position="right" :disabled="!collapsed">
+          <a-button type="text" class="collapse-button" :aria-label="collapsed ? '展开侧边栏' : '收起侧边栏'" @click="collapsed = !collapsed"><IconMenuUnfold v-if="collapsed" /><IconMenuFold v-else /></a-button>
+        </a-tooltip>
+      </div>
     </a-layout-sider>
-    <a-layout class="atlas-main-layout">
+    <a-layout class="atlas-main-layout" :style="{ marginLeft: collapsed ? '48px' : '220px' }">
       <a-layout-header class="atlas-header">
-        <a-button type="text" class="collapse-button" :aria-label="collapsed ? '展开侧边栏' : '收起侧边栏'" @click="collapsed = !collapsed"><IconMenuUnfold v-if="collapsed" /><IconMenuFold v-else /></a-button>
         <div class="header-actions">
           <a-input-search v-model="globalQuery" class="header-search" placeholder="搜索资源" allow-clear @search="globalSearch" @press-enter="globalSearch"><template #prefix><IconSearch /></template></a-input-search>
           <a-popover trigger="click" position="br" :popup-visible="showNotifications" @popup-visible-change="openNotifications">
@@ -90,7 +96,12 @@ onBeforeUnmount(() => { window.removeEventListener('atlas-api-error', showError)
           <a-dropdown trigger="click"><button class="user-entry" type="button"><a-avatar :size="32">{{ displayName.slice(0, 1).toUpperCase() }}</a-avatar><span class="user-meta"><strong>{{ displayName }}</strong><small>{{ roleName }}</small></span><IconDown /></button><template #content><a-doption @click="signOut"><template #icon><IconPoweroff /></template>退出登录</a-doption></template></a-dropdown>
         </div>
       </a-layout-header>
-      <a-layout-content class="atlas-content"><RouterView /></a-layout-content>
+      <a-layout-content class="atlas-content">
+        <a-breadcrumb v-if="breadcrumbs.length" class="atlas-breadcrumb">
+          <a-breadcrumb-item v-for="item in breadcrumbs" :key="item.label"><a-link v-if="item.path" @click="router.push(item.path)">{{ item.label }}</a-link><span v-else>{{ item.label }}</span></a-breadcrumb-item>
+        </a-breadcrumb>
+        <RouterView />
+      </a-layout-content>
     </a-layout>
     <div v-if="toast" class="toast" role="alert">{{ toast }}</div>
   </a-layout>

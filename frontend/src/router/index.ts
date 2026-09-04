@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { navigationFor } from '../navigation'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -36,6 +37,10 @@ router.beforeEach((to) => {
   const hasToken = Boolean(localStorage.getItem('atlas_token'))
   if (!hasToken && to.path !== '/login') return { path: '/login', query: { redirect: to.fullPath } }
   if (hasToken && to.path === '/login') return '/'
+})
+
+router.afterEach((to) => {
+  document.title = `${navigationFor(to).title} - Atlas Platform`
 })
 
 export default router

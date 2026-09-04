@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { Message } from "@arco-design/web-vue";
 import { IconDelete, IconPlus } from "@arco-design/web-vue/es/icon";
 import { assetApi } from "../api/assets";
 import { rememberOperator, savedOperator } from "../api/inventory";
@@ -119,6 +120,7 @@ async function create() {
     items.value = [emptyItem()];
     createVisible.value = false;
     await load();
+    Message.success("采购申请创建成功");
   } finally {
     submitting.value = false;
   }
@@ -149,6 +151,7 @@ async function submitReview() {
       );
     reviewVisible.value = false;
     await load();
+    Message.success(reviewAction.value === "approve" ? "采购申请已批准" : "采购申请已驳回");
   } finally {
     submitting.value = false;
   }
@@ -247,7 +250,10 @@ onMounted(async () => {
               ><span v-else>—</span></template
             ></a-table-column
           ></template
-        ><template #empty><a-empty description="暂无采购申请" /></template
+        ><template #empty
+          ><a-empty class="atlas-empty-guide" description="暂无采购申请，可提交第一条采购需求"
+            ><a-button type="primary" @click="createVisible = true">新建申请</a-button></a-empty
+          ></template
       ></a-table>
       <div class="arco-pagination">
         <span>共 {{ requests.length }} 条</span>
