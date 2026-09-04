@@ -21,6 +21,7 @@ from app.models.core import (
 )
 from app.models.governance import AuditLog, IdempotencyKey
 from app.models.knowledge import ArticleAttachment, KnowledgeArticle, KnowledgeRelation
+from app.models.notification import Notification
 from app.models.permission import Organization, Permission, Role, RolePermission, User, UserRole
 from app.models.operations import FaultRecord, RepairRecord, ReplacementEvent, WorkOrder
 from app.models.workflow import WorkflowDefinition, WorkflowInstance, WorkflowTask
@@ -43,6 +44,7 @@ __all__ = [
     "InventoryRecord",
     "KnowledgeArticle",
     "KnowledgeRelation",
+    "Notification",
     "FaultRecord",
     "ObjectHistory",
     "ObjectRelationship",

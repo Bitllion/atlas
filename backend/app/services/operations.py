@@ -12,6 +12,7 @@ from app.models import (FaultRecord, InfrastructureObject, ObjectHistory, Repair
                         ReplacementEvent, User, WorkOrder)
 from app.schemas.operations import RepairCreate, ReplacementCreate, WorkOrderCreate
 from app.services.core import _operator
+from app.services.notification import notify
 
 ALLOWED_TRANSITIONS = {
     "CREATED": {"ASSIGNED", "CANCELLED"},
@@ -88,6 +89,8 @@ def assign(db: Session, item: WorkOrder, assignee: UUID, header_user: str | None
     required_user(db, None, header_user, "操作人")
     engineer = required_user(db, assignee, None, "处理人")
     transition(item, "ASSIGNED", engineer, assigned_to=engineer, assigned_at=_now())
+    notify(db, engineer, "WORK_ORDER_ASSIGNED", "工单分配",
+           f"工单 {item.work_order_number} 已分配给你", "WORK_ORDER", item.id)
     db.commit(); db.refresh(item)
     return item
 
@@ -98,6 +101,10 @@ def simple_transition(db: Session, item: WorkOrder, target: str, header_user: st
     if target == "RESOLVED": changes = {"resolved_by": operator, "resolved_at": _now()}
     if target == "CLOSED": changes = {"closed_by": operator, "closed_at": _now()}
     transition(item, target, operator, **changes)
+    if target in {"RESOLVED", "CLOSED"}:
+        label = "已解决" if target == "RESOLVED" else "已关闭"
+        notify(db, item.created_by, "WORK_ORDER_UPDATED", "工单状态更新",
+               f"工单 {item.work_order_number} {label}", "WORK_ORDER", item.id)
     db.commit(); db.refresh(item)
     return item
 

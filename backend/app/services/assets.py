@@ -135,6 +135,11 @@ def decide_purchase(db: Session, request_id: UUID, payload: PurchaseDecision | P
         request.status, request.rejected_by, request.rejected_at = "REJECTED", operator, _now()
         request.rejection_reason = payload.rejection_reason
     request.updated_at = _now()
+    from app.services.notification import notify
+    result_label = "已批准" if approve else "被驳回"
+    notification_type = "PURCHASE_APPROVED" if approve else "PURCHASE_REJECTED"
+    notify(db, request.requester_id, notification_type, "采购审批结果",
+           f"采购单 {request.request_number} {result_label}", "PURCHASE_REQUEST", request.id)
     db.commit()
     db.refresh(request)
     return request
@@ -181,6 +186,11 @@ def _purchase_workflow_callback(db: Session, instance: WorkflowInstance) -> None
         request.rejected_at = final_task.actioned_at if final_task else now
         request.rejection_reason = final_task.comment if final_task else None
     request.updated_at = now
+    from app.services.notification import notify
+    result_label = "已批准" if instance.status == "COMPLETED" else "被驳回"
+    notification_type = "PURCHASE_APPROVED" if instance.status == "COMPLETED" else "PURCHASE_REJECTED"
+    notify(db, request.requester_id, notification_type, "采购审批结果",
+           f"采购单 {request.request_number} {result_label}", "PURCHASE_REQUEST", request.id)
 
 
 from app.services import workflow as workflow_service
