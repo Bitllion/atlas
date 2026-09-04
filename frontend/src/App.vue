@@ -54,7 +54,7 @@ onBeforeUnmount(() => { window.removeEventListener('atlas-api-error', showError)
 <template>
   <RouterView v-if="isLoginPage" />
   <a-layout v-else class="atlas-layout">
-    <a-layout-sider class="atlas-sider" :width="220" :collapsed-width="48" :collapsed="collapsed" collapsible breakpoint="lg" :hide-trigger="true" @collapse="collapsed = $event">
+    <a-layout-sider class="atlas-sider" :width="220" :collapsed-width="48" :collapsed="collapsed" collapsible :hide-trigger="true">
       <button class="atlas-brand" type="button" aria-label="返回工作台" @click="router.push('/dashboard')"><span class="atlas-brand-mark">A</span><span v-if="!collapsed" class="atlas-brand-name">Atlas</span></button>
       <a-menu class="atlas-menu" mode="vertical" :selected-keys="[selectedKey]" @menu-item-click="navigate">
         <a-menu-item key="/dashboard"><template #icon><a-tooltip content="工作台" position="right" :disabled="!collapsed"><IconDashboard /></a-tooltip></template>工作台</a-menu-item>
