@@ -21,6 +21,7 @@ from app.models.core import (
 )
 from app.models.governance import AuditLog, IdempotencyKey
 from app.models.permission import Organization, Permission, Role, RolePermission, User, UserRole
+from app.models.operations import FaultRecord, RepairRecord, ReplacementEvent, WorkOrder
 
 _import_models = import_module("app.models.import")
 ImportError = _import_models.ImportError
@@ -37,6 +38,7 @@ __all__ = [
     "ImportJob",
     "InventoryLocation",
     "InventoryRecord",
+    "FaultRecord",
     "ObjectHistory",
     "ObjectRelationship",
     "ObjectSpec",
@@ -45,9 +47,12 @@ __all__ = [
     "Permission",
     "PurchaseOrder",
     "PurchaseRequest",
+    "RepairRecord",
+    "ReplacementEvent",
     "RelationshipType",
     "Role",
     "RolePermission",
     "User",
     "UserRole",
+    "WorkOrder",
 ]

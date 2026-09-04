@@ -1,7 +1,8 @@
 import axios, { AxiosError } from 'axios'
 import type { ApiErrorBody } from '../types'
 
-export const apiClient = axios.create({ baseURL: `${import.meta.env.BASE_URL}api/v1`, timeout: 10_000, headers: { 'Content-Type': 'application/json' } })
+export const DEMO_USER_ID = '7c17910d-850b-4a4b-bf93-e556984edab3'
+export const apiClient = axios.create({ baseURL: `${import.meta.env.BASE_URL}api/v1`, timeout: 10_000, headers: { 'Content-Type': 'application/json', 'X-User-Id': DEMO_USER_ID } })
 
 export function errorMessage(error: unknown): string {
   if (!axios.isAxiosError<ApiErrorBody>(error)) return '发生未知错误，请稍后重试'

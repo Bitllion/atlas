@@ -1,0 +1,11 @@
+<script setup lang="ts">
+import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { objectApi } from '../api/objects'; import { operationsApi } from '../api/operations'
+import type { InfrastructureObject, WorkOrderPriority, WorkOrderType } from '../types'
+const router=useRouter(); const objects=ref<InfrastructureObject[]>([]); const saving=ref(false)
+const form=reactive({object_id:'',title:'',type:'FAULT' as WorkOrderType,priority:'MEDIUM' as WorkOrderPriority,description:''})
+async function submit(){saving.value=true;try{const {data}=await operationsApi.create({...form,description:form.description.trim()||null});await router.push(`/work-orders/${data.id}`)}finally{saving.value=false}}
+onMounted(async()=>{objects.value=(await objectApi.list({page:1,page_size:100})).data.items})
+</script>
+<template><section class="page narrow"><header class="page-header"><div><RouterLink class="back" to="/work-orders">← 返回工单列表</RouterLink><h1>新建工单</h1><p class="muted">选择设备，填写故障现象并设置处理优先级</p></div></header><form class="card object-form" @submit.prevent="submit"><h2>工单信息</h2><div class="form-grid"><label><span>关联设备 *</span><select v-model="form.object_id" required><option value="" disabled>请选择基础设施对象</option><option v-for="item in objects" :key="item.id" :value="item.id">{{item.name}}（{{item.serial_number||item.model||'无序列号'}}）</option></select></label><label><span>标题 *</span><input v-model.trim="form.title" required maxlength="255" placeholder="例如：GPU 温度过高" /></label><label><span>工单类型 *</span><select v-model="form.type"><option value="FAULT">故障</option><option value="REPAIR">维修</option><option value="INSPECTION">巡检</option></select></label><label><span>优先级 *</span><select v-model="form.priority"><option value="CRITICAL">紧急</option><option value="HIGH">高</option><option value="MEDIUM">中</option><option value="LOW">低</option></select></label></div><label class="wide-field"><span>故障现象 / 描述</span><textarea v-model="form.description" rows="7" placeholder="描述发现的问题、现象及影响范围"></textarea></label><footer class="form-actions"><RouterLink class="button" to="/work-orders">取消</RouterLink><button class="button primary" :disabled="saving" type="submit">{{saving?'提交中…':'提交工单'}}</button></footer></form></section></template>
