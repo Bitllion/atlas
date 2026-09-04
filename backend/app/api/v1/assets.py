@@ -48,48 +48,48 @@ def create_inventory_location(payload: InventoryLocationCreate, db: Session = De
 def receive_assets(payload: AssetReceive | list[AssetReceive] = Body(...), db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     many = isinstance(payload, list)
     items = payload if many else [payload]
-    result = [service.asset_out(db, asset) for asset in service.receive_assets(db, items, actor_id(user))]
+    result = [service.asset_out(db, asset) for asset in service.receive_assets(db, items, user)]
     return result if many else result[0]
 
 
 @router.put("/assets/{asset_id}/stock", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def stock_asset(asset_id: UUID, payload: StockAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
-    return service.asset_out(db, service.stock_asset(db, asset_id, payload, actor_id(user)))
+    return service.asset_out(db, service.stock_asset(db, asset_id, payload, user))
 
 
 @router.post("/inventory/receive", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def receive_into_inventory(payload: InventoryReceive, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
-    return service.asset_out(db, service.stock_asset(db, payload.asset_id, StockAsset(**payload.model_dump(exclude={"asset_id"})), actor_id(user)))
+    return service.asset_out(db, service.stock_asset(db, payload.asset_id, StockAsset(**payload.model_dump(exclude={"asset_id"})), user))
 
 
 @router.put("/assets/{asset_id}/deploy", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def deploy_asset(asset_id: UUID, payload: DeployAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
-    return service.asset_out(db, service.deploy_asset(db, asset_id, payload, actor_id(user)))
+    return service.asset_out(db, service.deploy_asset(db, asset_id, payload, user))
 
 
 @router.put("/assets/{asset_id}/transfer", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def transfer_asset(asset_id: UUID, payload: TransferAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
-    return service.asset_out(db, service.transfer_asset(db, asset_id, payload, actor_id(user)))
+    return service.asset_out(db, service.transfer_asset(db, asset_id, payload, user))
 
 
 @router.put("/assets/{asset_id}/complete-transfer", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def complete_transfer(asset_id: UUID, payload: CompleteTransfer, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
-    return service.asset_out(db, service.complete_transfer(db, asset_id, payload, actor_id(user)))
+    return service.asset_out(db, service.complete_transfer(db, asset_id, payload, user))
 
 
 @router.put("/assets/{asset_id}/retire", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def retire_asset(asset_id: UUID, payload: RetireAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
-    return service.asset_out(db, service.retire_asset(db, asset_id, payload, actor_id(user)))
+    return service.asset_out(db, service.retire_asset(db, asset_id, payload, user))
 
 
 @router.put("/assets/{asset_id}/recover", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def recover_asset(asset_id: UUID, payload: RecoverAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
-    return service.asset_out(db, service.recover_asset(db, asset_id, payload, actor_id(user)))
+    return service.asset_out(db, service.recover_asset(db, asset_id, payload, user))
 
 
 @router.post("/deployments", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def create_deployment(payload: DeploymentCreate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
-    return service.asset_out(db, service.deploy_asset(db, payload.asset_id, DeployAsset(**payload.model_dump(exclude={"asset_id"})), actor_id(user)))
+    return service.asset_out(db, service.deploy_asset(db, payload.asset_id, DeployAsset(**payload.model_dump(exclude={"asset_id"})), user))
 
 
 @router.get("/deployments", tags=["assets"], dependencies=[Depends(require_permission("asset.read"))])

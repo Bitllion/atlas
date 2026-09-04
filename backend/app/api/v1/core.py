@@ -44,7 +44,7 @@ def create_object(payload: ObjectCreate, request: Request, db: Session = Depends
         return JSONResponse(status_code=cached["status"], content=cached["body"])
     ip, agent = context(request)
     actor = actor_id(user)
-    result = service.create_object(db, payload, actor, ip, agent)
+    result = service.create_object(db, payload, user, ip, agent)
     response_body = jsonable_encoder(ObjectOut.model_validate(result))
     service.idempotency_store(db, idempotency_key, "/api/v1/objects", body, 201, response_body, actor)
     return result
@@ -90,7 +90,7 @@ def update_object(object_id: UUID, payload: ObjectUpdate, request: Request, db: 
         return JSONResponse(status_code=cached["status"], content=cached["body"])
     ip, agent = context(request)
     actor = actor_id(user)
-    result = service.update_object(db, object_id, payload, expected_version(if_match, payload.version), actor, ip, agent)
+    result = service.update_object(db, object_id, payload, expected_version(if_match, payload.version), user, ip, agent)
     service.idempotency_store(db, idempotency_key, endpoint, body, 200, jsonable_encoder(ObjectOut.model_validate(result)), actor)
     return result
 
@@ -103,7 +103,7 @@ def delete_object(object_id: UUID, request: Request, db: Session = Depends(get_d
         return Response(status_code=cached["status"])
     ip, agent = context(request)
     actor = actor_id(user)
-    service.delete_object(db, object_id, actor, ip, agent)
+    service.delete_object(db, object_id, user, ip, agent)
     service.idempotency_store(db, idempotency_key, endpoint, {}, 204, None, actor)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -123,7 +123,7 @@ def create_relationship(payload: RelationshipCreate, request: Request, db: Sessi
         return JSONResponse(status_code=cached["status"], content=cached["body"])
     ip, agent = context(request)
     actor = actor_id(user)
-    result = relationship_out(service.create_relationship(db, payload, actor, ip, agent))
+    result = relationship_out(service.create_relationship(db, payload, user, ip, agent))
     service.idempotency_store(db, idempotency_key, "/api/v1/relationships", body, 201, jsonable_encoder(result), actor)
     return result
 
@@ -153,7 +153,7 @@ def delete_relationship(relationship_id: UUID, request: Request, db: Session = D
         return Response(status_code=cached["status"])
     ip, agent = context(request)
     actor = actor_id(user)
-    service.delete_relationship(db, relationship_id, actor, ip, agent)
+    service.delete_relationship(db, relationship_id, user, ip, agent)
     service.idempotency_store(db, idempotency_key, endpoint, {}, 204, None, actor)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

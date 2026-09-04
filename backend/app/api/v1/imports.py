@@ -32,7 +32,7 @@ def preview_import(file: UploadFile = File(...), import_type: str = Form("object
 
 @router.post("/import/{import_id}/execute", response_model=ImportResult, tags=["imports"])
 def execute_import(import_id: UUID, user: User | None = Depends(get_current_user_optional), db: Session = Depends(get_db)):
-    job = service.execute(db, import_id, actor_id(user))
+    job = service.execute(db, import_id, user)
     return _result(db, job, False)
 
 
