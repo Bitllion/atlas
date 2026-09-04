@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { IconRefresh } from '@arco-design/web-vue/es/icon'
+import { Message } from '@arco-design/web-vue'
 import { workflowApi } from '../api/workflow'
 import type { WorkflowTask } from '../types'
 const tasks = ref<WorkflowTask[]>([]), loading = ref(false), actioningTaskId = ref<string | null>(null), showCommentModal = ref(false)
 const currentAction = ref<'approve' | 'reject'>('approve'), currentTaskId = ref(''), comment = ref('')
 async function loadTasks() { loading.value = true; try { tasks.value = (await workflowApi.myTasks()).data.items.filter(task => task.status === 'PENDING') } finally { loading.value = false } }
 function openCommentModal(taskId: string, action: 'approve' | 'reject') { currentTaskId.value = taskId; currentAction.value = action; comment.value = ''; showCommentModal.value = true }
-async function executeAction() { if (!currentTaskId.value) return; actioningTaskId.value = currentTaskId.value; try { if (currentAction.value === 'approve') await workflowApi.approve(currentTaskId.value, comment.value || undefined); else await workflowApi.reject(currentTaskId.value, comment.value || undefined); showCommentModal.value = false; await loadTasks() } finally { actioningTaskId.value = null } }
+async function executeAction() { if (!currentTaskId.value) return; actioningTaskId.value = currentTaskId.value; try { if (currentAction.value === 'approve') await workflowApi.approve(currentTaskId.value, comment.value || undefined); else await workflowApi.reject(currentTaskId.value, comment.value || undefined); showCommentModal.value = false; await loadTasks(); Message.success(currentAction.value === 'approve' ? '审批已批准' : '审批已驳回') } finally { actioningTaskId.value = null } }
 function cancelModal() { showCommentModal.value = false; currentTaskId.value = ''; comment.value = '' }
 onMounted(() => { void loadTasks() })
 </script>

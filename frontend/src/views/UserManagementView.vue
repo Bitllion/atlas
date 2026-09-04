@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed,onMounted,reactive,ref } from 'vue'
-import { Modal } from '@arco-design/web-vue'
+import { Message, Modal } from '@arco-design/web-vue'
 import { IconEdit,IconPlus,IconSearch } from '@arco-design/web-vue/es/icon'
 import { adminApi } from '../api/admin'
 import { loadCatalogs,loadUsers,useCatalog } from '../stores/catalog'
@@ -8,10 +8,10 @@ import type { User } from '../types'
 const {state}=useCatalog(),items=ref<User[]>([]),total=ref(0),page=ref(1),search=ref(''),loading=ref(false),saving=ref(false),modal=ref(false),editing=ref<User|null>(null),pageSize=20,totalPages=computed(()=>Math.max(1,Math.ceil(total.value/pageSize)))
 const form=reactive({username:'',full_name:'',email:'',organization_id:''})
 async function load(){loading.value=true;try{const {data}=await adminApi.users({search:search.value||undefined,page:page.value,page_size:pageSize});items.value=data.items;total.value=data.total}finally{loading.value=false}}
-function query(){page.value=1;void load()} function changePage(value:number){page.value=value;void load()}
+function query(){page.value=1;void load()} function reset(){search.value='';query()} function changePage(value:number){page.value=value;void load()}
 function openCreate(){editing.value=null;Object.assign(form,{username:'',full_name:'',email:'',organization_id:state.organizations.find(item=>item.is_active)?.id||''});modal.value=true}
 function openEdit(item:User){editing.value=item;Object.assign(form,{username:item.username,full_name:item.full_name||'',email:item.email,organization_id:item.organization_id});modal.value=true}
-async function save(){saving.value=true;try{if(editing.value)await adminApi.updateUser(editing.value.id,{full_name:form.full_name||null,email:form.email,organization_id:form.organization_id});else await adminApi.createUser({...form,full_name:form.full_name||null});modal.value=false;await Promise.all([load(),loadUsers(true)])}finally{saving.value=false}}
+async function save(){saving.value=true;try{if(editing.value)await adminApi.updateUser(editing.value.id,{full_name:form.full_name||null,email:form.email,organization_id:form.organization_id});else await adminApi.createUser({...form,full_name:form.full_name||null});modal.value=false;await Promise.all([load(),loadUsers(true)]);Message.success(editing.value?'用户更新成功':'用户创建成功')}finally{saving.value=false}}
 function toggle(item:User,value:boolean){Modal.confirm({title:value?'启用用户':'停用用户',content:`确认${value?'启用':'停用'}用户“${item.username}”吗？`,okText:'确认',cancelText:'取消',onOk:async()=>{await adminApi.updateUser(item.id,{is_active:value});await Promise.all([load(),loadUsers(true)])}})}
 onMounted(async()=>{await loadCatalogs();await load()})
 </script>
