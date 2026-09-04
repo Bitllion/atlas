@@ -3,13 +3,26 @@
 import sys
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 # Allow direct execution as ``python scripts/seed_permissions.py`` from backend/.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.database.session import SessionLocal
-from app.models import Permission, Role, RolePermission
+from app.models import Permission, Role, RolePermission, WorkflowDefinition
+
+
+PURCHASE_APPROVAL_DEFINITION = {
+    "nodes": [
+        {"id": "n1", "type": "approval", "assignee_role": "operator", "name": "部门审批"},
+        {"id": "n2", "type": "approval", "assignee_role": "admin", "name": "采购终审"},
+        {"id": "end", "type": "end"},
+    ],
+    "edges": [
+        {"source": "n1", "target": "n2"},
+        {"source": "n2", "target": "end"},
+    ],
+}
 
 
 PERMISSIONS = {
@@ -22,6 +35,8 @@ PERMISSIONS = {
     "purchase.approve": ("purchase", "approve", "审批或驳回采购申请"),
     "workorder.read": ("workorder", "read", "查看工单"),
     "workorder.write": ("workorder", "write", "创建或处理工单"),
+    "workflow.read": ("workorder", "read", "查看工作流定义、实例与个人待办"),
+    "workflow.write": ("workorder", "write", "启动工作流并处理审批任务"),
     "knowledge.read": ("knowledge", "read", "查看知识库"),
     "knowledge.write": ("knowledge", "write", "管理知识库"),
     "import.execute": ("import", "execute", "预览、执行并查看导入任务"),
@@ -46,6 +61,7 @@ ROLE_PERMISSIONS = {
         "purchase.write",
         "purchase.approve",
         "workorder.write",
+        "workflow.write",
         "knowledge.write",
         "import.execute",
     },
@@ -89,6 +105,27 @@ def seed_permissions() -> None:
                     db.add(RolePermission(role_id=role.id, permission_id=permission.id))
                 else:
                     binding.deleted_at = None
+
+        workflow = db.scalar(select(WorkflowDefinition).where(or_(
+            WorkflowDefinition.code == "purchase_approval",
+            WorkflowDefinition.name == "采购申请审批",
+        )))
+        if workflow is None:
+            workflow = WorkflowDefinition(
+                name="采购申请审批", code="purchase_approval",
+                description="内置两级采购审批：部门审批后由采购终审",
+                definition=PURCHASE_APPROVAL_DEFINITION,
+            )
+            db.add(workflow)
+        else:
+            workflow.name = "采购申请审批"
+            workflow.code = "purchase_approval"
+            workflow.description = "内置两级采购审批：部门审批后由采购终审"
+            workflow.definition = PURCHASE_APPROVAL_DEFINITION
+            workflow.version = 1
+            workflow.is_active = True
+            workflow.deleted_at = None
+            workflow.deleted_by = None
 
 
 def main() -> None:

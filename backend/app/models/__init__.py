@@ -23,6 +23,7 @@ from app.models.governance import AuditLog, IdempotencyKey
 from app.models.knowledge import ArticleAttachment, KnowledgeArticle, KnowledgeRelation
 from app.models.permission import Organization, Permission, Role, RolePermission, User, UserRole
 from app.models.operations import FaultRecord, RepairRecord, ReplacementEvent, WorkOrder
+from app.models.workflow import WorkflowDefinition, WorkflowInstance, WorkflowTask
 
 _import_models = import_module("app.models.import")
 ImportError = _import_models.ImportError
@@ -59,4 +60,7 @@ __all__ = [
     "User",
     "UserRole",
     "WorkOrder",
+    "WorkflowDefinition",
+    "WorkflowInstance",
+    "WorkflowTask",
 ]

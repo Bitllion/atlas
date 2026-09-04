@@ -30,7 +30,7 @@ class PurchaseRequest(IdMixin, TimestampMixin, Base):
     preferred_vendor: Mapped[str | None] = mapped_column(String(255))
     items: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
     status: Mapped[str] = mapped_column(String(50), default="PENDING", server_default="PENDING")
-    workflow_instance_id: Mapped[UUID | None]
+    workflow_instance_id: Mapped[UUID | None] = mapped_column(ForeignKey("workflow_instance.id"))
     requester_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     approved_by: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
     approved_at: Mapped[datetime | None]
