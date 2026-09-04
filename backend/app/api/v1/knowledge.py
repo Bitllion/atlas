@@ -3,7 +3,7 @@
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Header, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.config.settings import settings
 from app.core.exceptions import ServiceError
-from app.models import ArticleAttachment, KnowledgeArticle
+from app.core.security import actor_id, get_current_user_optional
+from app.models import ArticleAttachment, KnowledgeArticle, User
 from app.schemas.knowledge import ArticleCreate, ArticleStatus, ArticleType, ArticleUpdate, ObjectLinks
 from app.services import knowledge as service
 
@@ -19,8 +20,8 @@ router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
 
 @router.post("/articles", status_code=status.HTTP_201_CREATED)
-def create_article(payload: ArticleCreate, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
-    return service.article_out(service.create(db, payload, user))
+def create_article(payload: ArticleCreate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    return service.article_out(service.create(db, payload, actor_id(user)))
 
 
 @router.get("/articles")
@@ -41,18 +42,18 @@ def get_article(article_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.put("/articles/{article_id}")
-def update_article(article_id: UUID, payload: ArticleUpdate, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
-    return service.article_out(service.update(db, service.active_article(db, article_id), payload, user))
+def update_article(article_id: UUID, payload: ArticleUpdate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    return service.article_out(service.update(db, service.active_article(db, article_id), payload, actor_id(user)))
 
 
 @router.post("/articles/{article_id}/publish")
-def publish_article(article_id: UUID, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
-    return service.article_out(service.publish(db, service.active_article(db, article_id), user))
+def publish_article(article_id: UUID, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    return service.article_out(service.publish(db, service.active_article(db, article_id), actor_id(user)))
 
 
 @router.post("/articles/{article_id}/attachments", status_code=status.HTTP_201_CREATED)
-def upload_attachment(article_id: UUID, file: UploadFile = File(...), db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
-    return service.attachment_out(service.upload(db, service.active_article(db, article_id), file, user))
+def upload_attachment(article_id: UUID, file: UploadFile = File(...), db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    return service.attachment_out(service.upload(db, service.active_article(db, article_id), file, actor_id(user)))
 
 
 @router.get("/articles/{article_id}/attachments/{attachment_id}/download")
@@ -83,13 +84,13 @@ def download_attachment(article_id: UUID, attachment_id: UUID, db: Session = Dep
 
 
 @router.post("/articles/{article_id}/link-objects")
-def link_objects(article_id: UUID, payload: ObjectLinks, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
-    return {"items": service.link_objects(db, service.active_article(db, article_id), payload, user)}
+def link_objects(article_id: UUID, payload: ObjectLinks, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    return {"items": service.link_objects(db, service.active_article(db, article_id), payload, actor_id(user))}
 
 
 @router.delete("/articles/{article_id}/link-objects")
-def unlink_objects(article_id: UUID, payload: ObjectLinks, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
-    return {"items": service.unlink_objects(db, service.active_article(db, article_id), payload, user)}
+def unlink_objects(article_id: UUID, payload: ObjectLinks, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    return {"items": service.unlink_objects(db, service.active_article(db, article_id), payload, actor_id(user))}
 
 
 @router.get("/articles/{article_id}/links")

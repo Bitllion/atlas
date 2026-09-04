@@ -2,11 +2,14 @@
 
 from uuid import uuid4
 
+HEADERS = {"X-User-Id": "7c17910d-850b-4a4b-bf93-e556984edab3"}
+
 
 def test_user_and_organization_crud_and_username_conflict(client):
     marker = uuid4().hex
     organization_response = client.post(
         "/api/v1/organizations",
+        headers=HEADERS,
         json={
             "name": f"admin-org-{marker}",
             "org_type": "INTERNAL",
@@ -26,6 +29,7 @@ def test_user_and_organization_crud_and_username_conflict(client):
 
     updated_organization = client.put(
         f"/api/v1/organizations/{organization['id']}",
+        headers=HEADERS,
         json={"name": f"renamed-org-{marker}", "is_active": False},
     )
     assert updated_organization.status_code == 200, updated_organization.text
@@ -38,7 +42,7 @@ def test_user_and_organization_crud_and_username_conflict(client):
         "email": f"admin-user-{marker}@example.test",
         "organization_id": organization["id"],
     }
-    user_response = client.post("/api/v1/users", json=user_payload)
+    user_response = client.post("/api/v1/users", headers=HEADERS, json=user_payload)
     assert user_response.status_code == 201, user_response.text
     user = user_response.json()
     assert user["organization_id"] == organization["id"]
@@ -46,6 +50,7 @@ def test_user_and_organization_crud_and_username_conflict(client):
 
     duplicate = client.post(
         "/api/v1/users",
+        headers=HEADERS,
         json={**user_payload, "email": f"other-{marker}@example.test"},
     )
     assert duplicate.status_code == 409
@@ -57,6 +62,7 @@ def test_user_and_organization_crud_and_username_conflict(client):
 
     updated_user = client.put(
         f"/api/v1/users/{user['id']}",
+        headers=HEADERS,
         json={"full_name": "Disabled Administrator", "is_active": False},
     )
     assert updated_user.status_code == 200, updated_user.text
@@ -89,10 +95,12 @@ def test_attachment_upload_download_roundtrip(client):
     marker = uuid4().hex
     organization = client.post(
         "/api/v1/organizations",
+        headers=HEADERS,
         json={"name": f"download-org-{marker}", "org_type": "INTERNAL"},
     ).json()
     user_response = client.post(
         "/api/v1/users",
+        headers=HEADERS,
         json={
             "username": f"download-user-{marker}",
             "email": f"download-{marker}@example.test",

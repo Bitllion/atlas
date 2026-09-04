@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     )
     log_level: str = "INFO"
     upload_dir: str = "uploads"
+    auth_mode: str = "dev"
+    jwt_secret: str = "atlas-development-secret-change-me"
+    auth_token_expire_minutes: int = 12 * 60
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
