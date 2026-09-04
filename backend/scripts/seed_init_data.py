@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
-from sqlalchemy import MetaData, Table, create_engine
+from sqlalchemy import Engine, MetaData, Table, create_engine
 from sqlalchemy.dialects.postgresql import insert
 
 # Allow direct execution as ``python scripts/seed_init_data.py`` from backend/.
@@ -68,7 +68,7 @@ RELATIONSHIP_TYPES = [
 ]
 
 
-def upsert_rows(table: Table, rows: list[dict]) -> None:
+def upsert_rows(engine: Engine, table: Table, rows: list[dict]) -> None:
     statement = insert(table).values(rows)
     mutable_columns = {
         column.name: getattr(statement.excluded, column.name)
@@ -86,8 +86,8 @@ def upsert_rows(table: Table, rows: list[dict]) -> None:
         connection.execute(statement)
 
 
-if __name__ == "__main__":
-    engine = create_engine(settings.database_url, pool_pre_ping=True)
+def seed_initial_data(engine: Engine) -> None:
+    """Seed the catalogs required by a freshly migrated Atlas database."""
     metadata = MetaData()
     object_types = Table("object_types", metadata, autoload_with=engine)
     relationship_types = Table("relationship_types", metadata, autoload_with=engine)
@@ -103,6 +103,11 @@ if __name__ == "__main__":
         for name, category, description in OBJECT_TYPES
     ]
     relationship_rows = [dict(row, id=uuid4()) for row in RELATIONSHIP_TYPES]
-    upsert_rows(object_types, object_rows)
-    upsert_rows(relationship_types, relationship_rows)
+    upsert_rows(engine, object_types, object_rows)
+    upsert_rows(engine, relationship_types, relationship_rows)
     print(f"Seeded {len(object_rows)} object types and {len(RELATIONSHIP_TYPES)} relationship types.")
+
+
+if __name__ == "__main__":
+    engine = create_engine(settings.database_url, pool_pre_ping=True)
+    seed_initial_data(engine)
