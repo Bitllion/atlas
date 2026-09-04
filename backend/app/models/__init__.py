@@ -20,6 +20,7 @@ from app.models.core import (
     RelationshipType,
 )
 from app.models.governance import AuditLog, IdempotencyKey
+from app.models.knowledge import ArticleAttachment, KnowledgeArticle, KnowledgeRelation
 from app.models.permission import Organization, Permission, Role, RolePermission, User, UserRole
 from app.models.operations import FaultRecord, RepairRecord, ReplacementEvent, WorkOrder
 
@@ -30,6 +31,7 @@ ImportJob = _import_models.ImportJob
 __all__ = [
     "AuditLog",
     "Asset",
+    "ArticleAttachment",
     "Base",
     "IdempotencyKey",
     "Deployment",
@@ -38,6 +40,8 @@ __all__ = [
     "ImportJob",
     "InventoryLocation",
     "InventoryRecord",
+    "KnowledgeArticle",
+    "KnowledgeRelation",
     "FaultRecord",
     "ObjectHistory",
     "ObjectRelationship",

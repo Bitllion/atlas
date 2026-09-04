@@ -1,0 +1,67 @@
+"""HTTP routes for Phase 5a knowledge management."""
+
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, File, Header, Query, UploadFile, status
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.database.session import get_db
+from app.models import KnowledgeArticle
+from app.schemas.knowledge import ArticleCreate, ArticleStatus, ArticleType, ArticleUpdate, ObjectLinks
+from app.services import knowledge as service
+
+router = APIRouter(prefix="/knowledge", tags=["knowledge"])
+
+
+@router.post("/articles", status_code=status.HTTP_201_CREATED)
+def create_article(payload: ArticleCreate, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
+    return service.article_out(service.create(db, payload, user))
+
+
+@router.get("/articles")
+def list_articles(article_type: ArticleType | None = Query(default=None, alias="type"), article_status: ArticleStatus | None = Query(default=None, alias="status"), page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200), db: Session = Depends(get_db)):
+    filters = [KnowledgeArticle.deleted_at.is_(None), KnowledgeArticle.is_latest.is_(True)]
+    if article_type:
+        filters.append(KnowledgeArticle.type == article_type)
+    if article_status:
+        filters.append(KnowledgeArticle.status == article_status)
+    total = db.scalar(select(func.count()).select_from(KnowledgeArticle).where(*filters)) or 0
+    items = db.scalars(select(KnowledgeArticle).where(*filters).order_by(KnowledgeArticle.updated_at.desc()).offset((page - 1) * page_size).limit(page_size)).all()
+    return {"total": total, "page": page, "page_size": page_size, "items": [service.article_out(item) for item in items]}
+
+
+@router.get("/articles/{article_id}")
+def get_article(article_id: UUID, db: Session = Depends(get_db)):
+    return service.detail(db, service.active_article(db, article_id))
+
+
+@router.put("/articles/{article_id}")
+def update_article(article_id: UUID, payload: ArticleUpdate, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
+    return service.article_out(service.update(db, service.active_article(db, article_id), payload, user))
+
+
+@router.post("/articles/{article_id}/publish")
+def publish_article(article_id: UUID, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
+    return service.article_out(service.publish(db, service.active_article(db, article_id), user))
+
+
+@router.post("/articles/{article_id}/attachments", status_code=status.HTTP_201_CREATED)
+def upload_attachment(article_id: UUID, file: UploadFile = File(...), db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
+    return service.attachment_out(service.upload(db, service.active_article(db, article_id), file, user))
+
+
+@router.post("/articles/{article_id}/link-objects")
+def link_objects(article_id: UUID, payload: ObjectLinks, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
+    return {"items": service.link_objects(db, service.active_article(db, article_id), payload, user)}
+
+
+@router.delete("/articles/{article_id}/link-objects")
+def unlink_objects(article_id: UUID, payload: ObjectLinks, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
+    return {"items": service.unlink_objects(db, service.active_article(db, article_id), payload, user)}
+
+
+@router.get("/articles/{article_id}/links")
+def get_links(article_id: UUID, db: Session = Depends(get_db)):
+    article = service.active_article(db, article_id)
+    return {"items": service.links_out(db, article.id)}

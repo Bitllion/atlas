@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     app_name: str = "Atlas API"
     database_url: str = "postgresql+psycopg://atlas:atlas@localhost:55433/atlas"
     log_level: str = "INFO"
+    upload_dir: str = "uploads"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

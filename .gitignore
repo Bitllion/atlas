@@ -126,6 +126,7 @@ charts/*/charts/
 
 # ---------- 日志与运行时 ----------
 logs/
+backend/uploads/
 log/
 *.log
 *.log.*
