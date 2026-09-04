@@ -79,9 +79,13 @@ onBeforeUnmount(() => { window.removeEventListener('atlas-api-error', showError)
           <a-menu-item key="/admin/organizations"><template #icon><a-tooltip content="组织管理" position="right" :disabled="!collapsed"><IconMindMapping /></a-tooltip></template>组织管理</a-menu-item>
         </a-menu-item-group>
       </a-menu>
-      <div class="sider-collapse-area">
+      <div class="sider-collapse-area" :class="{ collapsed }">
         <a-tooltip :content="collapsed ? '展开侧边栏' : '收起侧边栏'" position="right" :disabled="!collapsed">
-          <a-button type="text" class="collapse-button" :aria-label="collapsed ? '展开侧边栏' : '收起侧边栏'" @click="collapsed = !collapsed"><IconMenuUnfold v-if="collapsed" /><IconMenuFold v-else /></a-button>
+          <button class="collapse-button" type="button" :aria-label="collapsed ? '展开侧边栏' : '收起侧边栏'" @click="collapsed = !collapsed">
+            <IconMenuUnfold v-if="collapsed" />
+            <IconMenuFold v-else />
+            <span v-if="!collapsed">收起侧边栏</span>
+          </button>
         </a-tooltip>
       </div>
     </a-layout-sider>
