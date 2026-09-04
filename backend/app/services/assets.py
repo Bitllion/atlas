@@ -10,22 +10,23 @@ from sqlalchemy.orm import Session
 from app.core.exceptions import ServiceError
 from app.models import (
     Asset, Deployment, InfrastructureObject, InventoryLocation, InventoryRecord,
-    ObjectHistory, ObjectRelationship, ObjectSpec, ObjectType, PurchaseRequest,
+    ObjectHistory, ObjectRelationship, ObjectSpec, ObjectType, Organization, PurchaseRequest,
     RelationshipType, User,
 )
-from app.schemas.assets import (AssetReceive, DeployAsset, InventoryLocationCreate,
+from app.schemas.assets import (AssetReceive, CompleteTransfer, DeployAsset, InventoryLocationCreate,
                                 PurchaseDecision, PurchaseRejection,
-                                PurchaseRequestCreate, StockAsset)
+                                PurchaseRequestCreate, RecoverAsset, RetireAsset,
+                                StockAsset, TransferAsset)
 from app.services.core import _operator
 
 ALLOWED_TRANSITIONS = {
     "REQUESTED": {"APPROVED"}, "APPROVED": {"ORDERED"},
     "ORDERED": {"PURCHASED"}, "PURCHASED": {"RECEIVED"},
-    "RECEIVED": {"STOCK", "IN_TRANSIT"}, "STOCK": {"IN_TRANSIT", "TRANSFERRED", "DEPLOYED"},
+    "RECEIVED": {"STOCK", "IN_TRANSIT"}, "STOCK": {"IN_TRANSIT", "TRANSFERRED", "DEPLOYED", "RETIRED"},
     "IN_TRANSIT": {"DEPLOYING", "STOCK"}, "DEPLOYING": {"DEPLOYED", "STOCK"},
     "DEPLOYED": {"ACTIVE"}, "ACTIVE": {"MAINTENANCE", "TRANSFERRED", "RETIRED"},
     "MAINTENANCE": {"ACTIVE", "RETIRED"}, "TRANSFERRED": {"STOCK", "DEPLOYING"},
-    "RETIRED": {"RECOVERED"}, "RECOVERED": {"ACTIVE", "STOCK"},
+    "RETIRED": {"RECOVERED"}, "RECOVERED": {"STOCK", "MAINTENANCE"},
 }
 
 
@@ -199,6 +200,88 @@ def stock_asset(db: Session, asset_id: UUID, payload: StockAsset, header_user: s
     asset.updated_by = operator
     db.add(InventoryRecord(transaction_type="IN", asset_id=asset.id, quantity=1, warehouse_location=f"{location.warehouse}/{location.shelf or location.location_code}", inventory_location_id=location.id, related_purchase_order_id=asset.purchase_order_id, operator_id=operator, notes=payload.notes))
     _history(db, asset, old, "STOCK", operator, inventory_location_id=str(location.id))
+    db.commit()
+    db.refresh(asset)
+    return asset
+
+
+def transfer_asset(db: Session, asset_id: UUID, payload: TransferAsset, header_user: str | None) -> Asset:
+    asset = _active_asset(db, asset_id)
+    _require_transition(asset, "TRANSFERRED")
+    _require_version(asset, payload.version)
+    if payload.target_organization_id is not None:
+        if db.scalar(select(Organization.id).where(Organization.id == payload.target_organization_id, Organization.deleted_at.is_(None))) is None:
+            raise ServiceError(404, "OrganizationNotFound", "目标组织不存在")
+    operator = _required_user(db, payload.operator_id, header_user, "调拨操作人")
+    old, old_location = asset.lifecycle_status, asset.inventory_location_id
+    if old_location is not None:
+        db.add(InventoryRecord(
+            transaction_type="OUT", asset_id=asset.id, quantity=-1,
+            inventory_location_id=old_location, related_purchase_order_id=asset.purchase_order_id,
+            operator_id=operator, notes=payload.notes,
+        ))
+    asset.lifecycle_status, asset.inventory_location_id = "TRANSFERRED", None
+    if payload.target_organization_id is not None:
+        asset.operator_org_id = payload.target_organization_id
+    asset.version += 1
+    asset.updated_by = operator
+    _history(db, asset, old, "TRANSFERRED", operator,
+             target_organization_id=str(payload.target_organization_id) if payload.target_organization_id else None,
+             source_inventory_location_id=str(old_location) if old_location else None, notes=payload.notes)
+    db.commit()
+    db.refresh(asset)
+    return asset
+
+
+def complete_transfer(db: Session, asset_id: UUID, payload: CompleteTransfer, header_user: str | None) -> Asset:
+    asset = _active_asset(db, asset_id)
+    if asset.lifecycle_status not in {"TRANSFERRED", "RECOVERED"}:
+        raise ServiceError(409, "InvalidAssetTransition", f"资产状态 {asset.lifecycle_status} 不能转换为 STOCK")
+    return stock_asset(db, asset_id, payload, header_user)
+
+
+def retire_asset(db: Session, asset_id: UUID, payload: RetireAsset, header_user: str | None) -> Asset:
+    asset = _active_asset(db, asset_id)
+    _require_transition(asset, "RETIRED")
+    _require_version(asset, payload.version)
+    operator = _required_user(db, payload.operator_id, header_user, "退役操作人")
+    obj = db.get(InfrastructureObject, asset.object_id)
+    old = asset.lifecycle_status
+    asset.lifecycle_status, asset.inventory_location_id = "RETIRED", None
+    asset.version += 1
+    asset.updated_by = operator
+    obj.status, obj.updated_by = "RETIRED", operator
+    if payload.end_active_relationships:
+        relationships = db.scalars(select(ObjectRelationship).where(
+            ObjectRelationship.source_object_id == obj.id,
+            ObjectRelationship.status == "ACTIVE",
+            ObjectRelationship.deleted_at.is_(None),
+        )).all()
+        for relationship in relationships:
+            relationship.status = "INACTIVE"
+        obj.deployed_location_id = None
+    _history(db, asset, old, "RETIRED", operator, reason=payload.reason,
+             disposition=payload.disposition,
+             ended_active_relationships=payload.end_active_relationships)
+    db.commit()
+    db.refresh(asset)
+    return asset
+
+
+def recover_asset(db: Session, asset_id: UUID, payload: RecoverAsset, header_user: str | None) -> Asset:
+    asset = _active_asset(db, asset_id)
+    _require_transition(asset, "RECOVERED")
+    _require_version(asset, payload.version)
+    operator = _required_user(db, payload.operator_id, header_user, "退役撤销操作人")
+    obj = db.get(InfrastructureObject, asset.object_id)
+    old = asset.lifecycle_status
+    asset.lifecycle_status = "RECOVERED"
+    asset.version += 1
+    asset.updated_by = operator
+    # Recovery removes the terminal object state, but does not claim that the
+    # equipment is operational before it has been inspected or redeployed.
+    obj.status, obj.updated_by = "MAINTENANCE", operator
+    _history(db, asset, old, "RECOVERED", operator, reason=payload.reason)
     db.commit()
     db.refresh(asset)
     return asset
