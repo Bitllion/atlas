@@ -1,13 +1,17 @@
 """HTTP routes for Phase 5a knowledge management."""
 
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Header, Query, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.models import KnowledgeArticle
+from app.config.settings import settings
+from app.core.exceptions import ServiceError
+from app.models import ArticleAttachment, KnowledgeArticle
 from app.schemas.knowledge import ArticleCreate, ArticleStatus, ArticleType, ArticleUpdate, ObjectLinks
 from app.services import knowledge as service
 
@@ -49,6 +53,33 @@ def publish_article(article_id: UUID, db: Session = Depends(get_db), user: str |
 @router.post("/articles/{article_id}/attachments", status_code=status.HTTP_201_CREATED)
 def upload_attachment(article_id: UUID, file: UploadFile = File(...), db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
     return service.attachment_out(service.upload(db, service.active_article(db, article_id), file, user))
+
+
+@router.get("/articles/{article_id}/attachments/{attachment_id}/download")
+def download_attachment(article_id: UUID, attachment_id: UUID, db: Session = Depends(get_db)):
+    service.active_article(db, article_id)
+    attachment = db.scalar(
+        select(ArticleAttachment).where(
+            ArticleAttachment.id == attachment_id,
+            ArticleAttachment.article_id == article_id,
+        )
+    )
+    if attachment is None:
+        raise ServiceError(404, "AttachmentNotFound", "附件不存在")
+
+    upload_root = Path(settings.upload_dir)
+    if not upload_root.is_absolute():
+        upload_root = Path(__file__).resolve().parents[3] / upload_root
+    upload_root = upload_root.resolve()
+    stored_path = Path(attachment.file_path)
+    candidates = [upload_root / stored_path, upload_root.parent / stored_path]
+    target = next(
+        (candidate.resolve() for candidate in candidates if candidate.resolve().is_relative_to(upload_root) and candidate.is_file()),
+        None,
+    )
+    if target is None:
+        raise ServiceError(404, "AttachmentFileNotFound", "附件文件不存在")
+    return FileResponse(target, filename=attachment.file_name)
 
 
 @router.post("/articles/{article_id}/link-objects")

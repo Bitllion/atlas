@@ -140,7 +140,7 @@ def upload(db: Session, article: KnowledgeArticle, file: UploadFile, user: str |
             while chunk := file.file.read(1024 * 1024):
                 size += len(chunk)
                 output.write(chunk)
-        relative_path = str(target.relative_to(root.parent))
+        relative_path = str(target.relative_to(root))
         attachment = ArticleAttachment(article_id=article.id, file_name=original_name, file_path=relative_path, file_size=size, uploaded_by=uploader)
         db.add(attachment)
         db.commit()
