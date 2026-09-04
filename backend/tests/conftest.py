@@ -15,6 +15,7 @@ from sqlalchemy.orm import close_all_sessions
 
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://atlas:atlas@localhost:55433/atlas"
+TEST_USER_HEADERS = {"X-User-Id": "7c17910d-850b-4a4b-bf93-e556984edab3"}
 
 
 def _test_database_url() -> URL:
@@ -98,6 +99,12 @@ def test_database() -> Iterator[None]:
 
 @pytest.fixture(scope="session")
 def client(test_database) -> Iterator[TestClient]:
+    with TestClient(app, headers=TEST_USER_HEADERS) as test_client:
+        yield test_client
+
+
+@pytest.fixture(scope="session")
+def unauthenticated_client(test_database) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
 

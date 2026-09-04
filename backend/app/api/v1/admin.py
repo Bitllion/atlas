@@ -169,6 +169,7 @@ def list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     db: Session = Depends(get_db),
+    _authenticated_user: User = Depends(require_current_user),
 ):
     filters = [User.deleted_at.is_(None)]
     if search:
@@ -192,7 +193,11 @@ def list_users(
 
 
 @router.get("/users/{user_id}")
-def get_user(user_id: UUID, db: Session = Depends(get_db)):
+def get_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    _authenticated_user: User = Depends(require_current_user),
+):
     item = _user(db, user_id)
     organization_name = db.scalar(select(Organization.name).where(Organization.id == item.organization_id))
     return _user_out(item, organization_name)
@@ -256,6 +261,7 @@ def list_organizations(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     db: Session = Depends(get_db),
+    _authenticated_user: User = Depends(require_current_user),
 ):
     filters = [Organization.deleted_at.is_(None)]
     if search:
@@ -272,7 +278,11 @@ def list_organizations(
 
 
 @router.get("/organizations/{organization_id}")
-def get_organization(organization_id: UUID, db: Session = Depends(get_db)):
+def get_organization(
+    organization_id: UUID,
+    db: Session = Depends(get_db),
+    _authenticated_user: User = Depends(require_current_user),
+):
     return _organization_out(_organization(db, organization_id))
 
 
@@ -305,6 +315,7 @@ def list_inventory_locations(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     db: Session = Depends(get_db),
+    _authenticated_user: User = Depends(require_current_user),
 ):
     active = InventoryLocation.deleted_at.is_(None)
     total = db.scalar(select(func.count()).select_from(InventoryLocation).where(active)) or 0

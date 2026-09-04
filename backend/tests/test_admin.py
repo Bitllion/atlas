@@ -5,6 +5,13 @@ from uuid import uuid4
 HEADERS = {"X-User-Id": "7c17910d-850b-4a4b-bf93-e556984edab3"}
 
 
+def test_list_users_without_credentials_returns_401(unauthenticated_client):
+    response = unauthenticated_client.get("/api/v1/users")
+
+    assert response.status_code == 401
+    assert response.json() == {"code": "Unauthorized", "message": "需要认证"}
+
+
 def test_user_and_organization_crud_and_username_conflict(client):
     marker = uuid4().hex
     organization_response = client.post(

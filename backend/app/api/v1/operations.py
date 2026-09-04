@@ -7,12 +7,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.core.security import actor_id, get_current_user_optional
+from app.core.security import actor_id, get_current_user_optional, require_current_user
 from app.models import User, WorkOrder
 from app.schemas.operations import RepairCreate, ReplacementCreate, WorkOrderAssign, WorkOrderCreate
 from app.services import operations as service
 
-router = APIRouter(tags=["operations"])
+router = APIRouter(tags=["operations"], dependencies=[Depends(require_current_user)])
 
 
 @router.post("/work-orders", status_code=status.HTTP_201_CREATED)

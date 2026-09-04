@@ -5,9 +5,12 @@ from sqlalchemy import func, literal, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
+from app.core.security import require_current_user
 from app.models import Asset, InfrastructureObject, KnowledgeArticle, ObjectType, Organization, WorkOrder
 
-router = APIRouter(tags=["dashboard", "search"])
+router = APIRouter(
+    tags=["dashboard", "search"], dependencies=[Depends(require_current_user)]
+)
 
 OPEN_STATUSES = ("CREATED", "ASSIGNED", "PROCESSING", "WAITING", "SUSPENDED", "REOPENED")
 
