@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { DEMO_USER_ID } from '../api/client'; import { objectApi } from '../api/objects'; import { operationsApi } from '../api/operations'
+import { objectApi } from '../api/objects'; import { operationsApi } from '../api/operations'
+import { currentUser } from '../stores/auth'
 import { loadUsers, useCatalog } from '../stores/catalog'
 import type { InfrastructureObject, WorkOrderDetail } from '../types'
 const route=useRoute(); const id=route.params.id as string; const item=ref<WorkOrderDetail|null>(null); const objects=ref<InfrastructureObject[]>([]); const busy=ref(false); const modal=ref<'assign'|'repair'|'replacement'|null>(null)
 const { state, userMap } = useCatalog()
-const assignForm=reactive({assigned_to:DEMO_USER_ID}); const repairForm=reactive({repair_type:'ADJUSTMENT',description:'',repair_result:'SUCCESS',started_at:'',completed_at:'',verification_notes:''}); const replacementForm=reactive({repair_record_id:'',old_object_id:'',new_object_id:'',replacement_reason:'FAILURE',old_object_disposition:'RMA',replaced_at:'',notes:''})
+const assignForm=reactive({assigned_to:currentUser.value?.id || ''}); const repairForm=reactive({repair_type:'ADJUSTMENT',description:'',repair_result:'SUCCESS',started_at:'',completed_at:'',verification_notes:''}); const replacementForm=reactive({repair_record_id:'',old_object_id:'',new_object_id:'',replacement_reason:'FAILURE',old_object_disposition:'RMA',replaced_at:'',notes:''})
 const objectMap=computed(()=>Object.fromEntries(objects.value.map(value=>[value.id,value.name]))); const currentObject=computed(()=>item.value ? objectMap.value[item.value.related_object_id]||item.value.related_object_id : '—')
 const statusName:Record<string,string>={CREATED:'已创建',ASSIGNED:'已分配',PROCESSING:'处理中',WAITING:'等待中',SUSPENDED:'已暂停',RESOLVED:'已解决',CLOSED:'已关闭',CANCELLED:'已取消',REOPENED:'已重开'}; const typeName:Record<string,string>={FAULT:'故障',REPAIR:'维修',INSPECTION:'巡检',CHANGE:'变更'}; const priorityName:Record<string,string>={CRITICAL:'紧急',HIGH:'高',MEDIUM:'中',LOW:'低'}; const repairTypeName:Record<string,string>={REPLACEMENT:'部件更换',UPGRADE:'升级',ADJUSTMENT:'调整',CLEANING:'清洁'}; const resultName:Record<string,string>={SUCCESS:'成功',FAILED:'失败',PARTIAL:'部分完成'}; const reasonName:Record<string,string>={FAILURE:'故障',UPGRADE:'升级',PREVENTIVE:'预防性更换'}
 function format(value:string|null|undefined){return value?new Date(value).toLocaleString('zh-CN'):'—'}; function iso(value:string){return value?new Date(value).toISOString():undefined}

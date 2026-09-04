@@ -1,8 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(),
   routes: [
+    { path: '/login', name: 'login', component: () => import('../views/LoginView.vue') },
     { path: '/', redirect: '/dashboard' },
     { path: '/dashboard', name: 'dashboard', component: () => import('../views/DashboardView.vue') },
     { path: '/search', name: 'search', component: () => import('../views/SearchView.vue') },
@@ -28,3 +29,11 @@ export default createRouter({
     { path: '/:pathMatch(.*)*', redirect: '/objects' },
   ],
 })
+
+router.beforeEach((to) => {
+  const hasToken = Boolean(localStorage.getItem('atlas_token'))
+  if (!hasToken && to.path !== '/login') return { path: '/login', query: { redirect: to.fullPath } }
+  if (hasToken && to.path === '/login') return '/'
+})
+
+export default router
