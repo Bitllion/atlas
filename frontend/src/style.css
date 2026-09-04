@@ -235,3 +235,33 @@ th, td { padding: 13px 14px; border-bottom: 1px solid #e8ebf0; white-space: nowr
 .arco-login-error { margin: -4px 0 20px; }
 .login-copyright { z-index: 1; margin: 24px 0 0; color: #86909c; font-size: 12px; }
 @media (max-width: 1100px) { .arco-operations-grid { grid-template-columns: 1fr; }.arco-timeline-card { position: static; } }
+
+/* UI 批次 2c：对象、知识、质量与管理页 */
+.form-page { max-width: 1180px; }
+.object-stat-grid, .quality-stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+.quality-stat-grid { grid-template-columns: repeat(4, 1fr); }
+.object-stat-grid > .arco-card, .quality-stat-grid > .arco-card, .object-detail-tabs, .quality-tabs-card, .knowledge-ai-card, .article-typography-card, .knowledge-detail-grid > .arco-card { border-radius: 8px; box-shadow: 0 1px 3px rgb(0 0 0 / 4%); }
+.object-detail-tabs { padding: 0 20px 20px; background: #fff; }
+.object-detail-tabs .arco-tabs-content > .arco-tabs-pane > .arco-card > .arco-card-body { padding: 4px 0; }
+.spec-json { max-height: 520px; margin: 0; overflow: auto; color: #4e5969; font: 13px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.history-changes { margin-top: 12px; }
+.change-row { display: grid; grid-template-columns: 160px minmax(0, 1fr) 20px minmax(0, 1fr); gap: 10px; padding: 7px 0; color: #4e5969; font-size: 12px; }
+.change-row span { overflow-wrap: anywhere; white-space: pre-wrap; }
+.object-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+.form-section-title { margin: 0 0 20px; color: #1d2129; font-size: 16px; }
+.knowledge-ai-card { margin-bottom: 16px; }
+.card-title-icon { display: inline-flex; align-items: center; gap: 8px; }
+.ask-actions { display: flex; justify-content: flex-end; margin: 12px 0; }
+.answer-card { margin-top: 14px; background: #f7f8fa; }
+.source-list { margin-top: 18px; }
+.source-list h4 { margin: 0 0 8px; }
+.source-list .arco-list-item-meta { cursor: pointer; }
+.article-typography-card { margin-bottom: 16px; }
+.article-typography-card > .arco-card-body { padding: 28px; }
+.article-body { min-height: 180px; line-height: 1.85 !important; white-space: pre-wrap; overflow-wrap: anywhere; }
+.detail-inline-form { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding-top: 16px; }
+.file-trigger input { display: none; }
+.link-object-form { padding-top: 18px; }
+.quality-tabs-card > .arco-card-body { padding: 0 20px 20px; }
+.quality-filter { padding: 8px 0 0; }
+@media (max-width: 900px) { .object-stat-grid, .quality-stat-grid, .object-form-grid, .knowledge-detail-grid { grid-template-columns: 1fr; }.change-row { grid-template-columns: 1fr; }.arco-page { padding: 20px 16px 40px; } }

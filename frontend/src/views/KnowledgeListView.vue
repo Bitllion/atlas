@@ -1,166 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed,onMounted,ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { knowledgeApi, type AskResponse } from '../api/knowledge'
+import { IconPlus,IconRobot,IconSearch } from '@arco-design/web-vue/es/icon'
+import { knowledgeApi,type AskResponse } from '../api/knowledge'
 import type { KnowledgeArticle } from '../types'
-
-const router = useRouter()
-const items = ref<KnowledgeArticle[]>([])
-const loading = ref(false)
-const total = ref(0)
-const page = ref(1)
-const type = ref('')
-const status = ref('')
-const pageSize = 20
-
-const question = ref('')
-const asking = ref(false)
-const askResult = ref<AskResponse | null>(null)
-
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
-const typeName: Record<string, string> = { SOP: '标准操作流程', TROUBLESHOOTING: '故障排查', FAQ: '常见问题', BEST_PRACTICE: '最佳实践' }
-const statusName: Record<string, string> = { DRAFT: '草稿', UNDER_REVIEW: '审核中', PUBLISHED: '已发布', ARCHIVED: '已归档' }
-
-async function load() {
-  loading.value = true
-  try {
-    const { data } = await knowledgeApi.list({ page: page.value, page_size: pageSize, type: type.value || undefined, status: status.value || undefined })
-    items.value = data.items
-    total.value = data.total
-  } finally {
-    loading.value = false
-  }
-}
-
-function filter() {
-  page.value = 1
-  void load()
-}
-
-async function askQuestion() {
-  const q = question.value.trim()
-  if (!q) return
-
-  asking.value = true
-  askResult.value = null
-  try {
-    const { data } = await knowledgeApi.ask(q)
-    askResult.value = data
-  } finally {
-    asking.value = false
-  }
-}
-
-function format(v: string) {
-  return new Date(v).toLocaleString('zh-CN')
-}
-
+const router=useRouter(),items=ref<KnowledgeArticle[]>([]),loading=ref(false),total=ref(0),page=ref(1),type=ref(''),status=ref(''),pageSize=20,question=ref(''),asking=ref(false),askResult=ref<AskResponse|null>(null)
+const totalPages=computed(()=>Math.max(1,Math.ceil(total.value/pageSize))),typeName:Record<string,string>={SOP:'标准操作流程',TROUBLESHOOTING:'故障排查',FAQ:'常见问题',BEST_PRACTICE:'最佳实践'},statusName:Record<string,string>={DRAFT:'草稿',UNDER_REVIEW:'审核中',PUBLISHED:'已发布',ARCHIVED:'已归档'}
+const statusColor=(value:string)=>({DRAFT:'gray',UNDER_REVIEW:'orange',PUBLISHED:'green',ARCHIVED:'gray'}[value]||'gray')
+async function load(){loading.value=true;try{const {data}=await knowledgeApi.list({page:page.value,page_size:pageSize,type:type.value||undefined,status:status.value||undefined});items.value=data.items;total.value=data.total}finally{loading.value=false}}
+function filter(){page.value=1;void load()} function changePage(value:number){page.value=value;void load()}
+async function askQuestion(){const q=question.value.trim();if(!q)return;asking.value=true;askResult.value=null;try{askResult.value=(await knowledgeApi.ask(q)).data}finally{asking.value=false}}
+const format=(v:string)=>new Date(v).toLocaleString('zh-CN')
 onMounted(load)
 </script>
-<template>
-  <section class="page">
-    <header class="page-header">
-      <div>
-        <p class="eyebrow">KNOWLEDGE CENTER</p>
-        <h1>知识库</h1>
-        <p class="muted">沉淀基础设施运维经验与标准流程</p>
-      </div>
-      <RouterLink class="button primary" to="/knowledge/new">+ 新建文章</RouterLink>
-    </header>
-
-    <!-- AI 问答区 -->
-    <div class="card ai-ask-section">
-      <div class="section-title">
-        <h3>💬 AI 问答</h3>
-      </div>
-      <div class="ai-ask-form">
-        <form @submit.prevent="askQuestion">
-          <label>
-            <span>提问</span>
-            <textarea v-model="question" rows="3" placeholder="输入您的问题…" :disabled="asking"></textarea>
-          </label>
-          <button class="button primary" type="submit" :disabled="asking || !question.trim()">
-            {{ asking ? '查询中…' : '提问' }}
-          </button>
-        </form>
-
-        <div v-if="askResult" class="ai-ask-result">
-          <div v-if="!askResult.configured" class="ai-not-configured">
-            <p>⚠️ LLM 未配置，无法生成 AI 回答。请联系管理员配置 LLM API。</p>
-          </div>
-          <div v-else-if="askResult.answer" class="ai-answer">
-            <strong>AI 回答：</strong>
-            <p>{{ askResult.answer }}</p>
-          </div>
-          <div v-if="askResult.sources.length > 0" class="ai-sources">
-            <strong>参考来源：</strong>
-            <div v-for="source in askResult.sources" :key="source.id" class="source-item">
-              <RouterLink :to="`/knowledge/${source.id}`" class="source-link">
-                {{ source.title }} <span class="source-type">({{ typeName[source.type] || source.type }})</span>
-              </RouterLink>
-              <p class="source-summary">{{ source.summary }}</p>
-            </div>
-          </div>
-          <div v-else-if="!askResult.answer" class="ai-no-result">
-            <p>未找到相关知识文章。</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <form class="filter-bar card" @submit.prevent="filter">
-      <label>
-        <span>文章分类</span>
-        <select v-model="type">
-          <option value="">全部分类</option>
-          <option v-for="(name, value) in typeName" :key="value" :value="value">{{ name }}</option>
-        </select>
-      </label>
-      <label>
-        <span>发布状态</span>
-        <select v-model="status">
-          <option value="">全部状态</option>
-          <option v-for="(name, value) in statusName" :key="value" :value="value">{{ name }}</option>
-        </select>
-      </label>
-      <button class="button">查询</button>
-    </form>
-
-    <div class="card table-card">
-      <div v-if="loading" class="empty">正在加载…</div>
-      <div v-else-if="!items.length" class="empty">暂无知识文章</div>
-      <div v-else class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>标题</th>
-              <th>分类</th>
-              <th>状态</th>
-              <th>标签</th>
-              <th>创建时间</th>
-              <th>更新时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in items" :key="item.id" class="clickable" @click="router.push(`/knowledge/${item.id}`)">
-              <td class="name-cell">{{ item.title }}</td>
-              <td>{{ typeName[item.type] }}</td>
-              <td><span class="status" :class="item.status.toLowerCase()">{{ statusName[item.status] }}</span></td>
-              <td>{{ item.tags?.join('、') || '—' }}</td>
-              <td>{{ format(item.created_at) }}</td>
-              <td>{{ format(item.updated_at) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <footer class="pagination">
-        <span>共 {{ total }} 条</span>
-        <div>
-          <button :disabled="page <= 1" @click="page--; load()">上一页</button>
-          <span>第 {{ page }} / {{ totalPages }} 页</span>
-          <button :disabled="page >= totalPages" @click="page++; load()">下一页</button>
-        </div>
-      </footer>
-    </div>
-  </section>
-</template>
+<template><section class="page arco-page"><header class="page-header"><div><p class="eyebrow">知识中心</p><h1>知识库</h1><p class="muted">沉淀基础设施运维经验与标准流程</p></div><a-button type="primary" @click="router.push('/knowledge/new')"><template #icon><IconPlus/></template>新建文章</a-button></header>
+<a-card class="knowledge-ai-card" :bordered="false"><template #title><span class="card-title-icon"><IconRobot/>AI 问答</span></template><a-textarea v-model="question" :auto-size="{minRows:3,maxRows:8}" placeholder="输入您的问题…" :disabled="asking"/><div class="ask-actions"><a-button type="primary" :loading="asking" :disabled="!question.trim()" @click="askQuestion">提问</a-button></div><a-alert v-if="askResult&&!askResult.configured" type="warning">大语言模型未配置，无法生成 AI 回答，请联系管理员配置。</a-alert><template v-else-if="askResult"><a-card v-if="askResult.answer" class="answer-card" title="AI 回答" :bordered="false"><a-typography-paragraph>{{askResult.answer}}</a-typography-paragraph></a-card><div v-if="askResult.sources.length" class="source-list"><h4>参考来源</h4><a-list :bordered="false"><a-list-item v-for="source in askResult.sources" :key="source.id"><a-list-item-meta :title="source.title" :description="source.summary" @click="router.push(`/knowledge/${source.id}`)"><template #avatar><a-tag color="arcoblue">{{typeName[source.type]||source.type}}</a-tag></template></a-list-item-meta></a-list-item></a-list></div><a-empty v-else-if="!askResult.answer" description="未找到相关知识文章"/></template></a-card>
+<a-card class="arco-filter-card" :bordered="false"><a-form :model="{}" layout="inline" @submit.prevent="filter"><a-form-item label="文章分类"><a-select v-model="type" allow-clear placeholder="全部分类"><a-option value="">全部分类</a-option><a-option v-for="(name,value) in typeName" :key="value" :value="value">{{name}}</a-option></a-select></a-form-item><a-form-item label="发布状态"><a-select v-model="status" allow-clear placeholder="全部状态"><a-option value="">全部状态</a-option><a-option v-for="(name,value) in statusName" :key="value" :value="value">{{name}}</a-option></a-select></a-form-item><a-form-item><a-button type="primary" html-type="submit"><template #icon><IconSearch/></template>查询</a-button></a-form-item></a-form></a-card>
+<a-card class="arco-table-card" :bordered="false"><a-table :data="items" :loading="loading" :pagination="false" row-key="id" @row-click="record=>router.push(`/knowledge/${record.id}`)"><template #columns><a-table-column title="标题" data-index="title"><template #cell="{record}"><a-link class="object-name">{{record.title}}</a-link></template></a-table-column><a-table-column title="分类"><template #cell="{record}">{{typeName[record.type]||record.type}}</template></a-table-column><a-table-column title="状态"><template #cell="{record}"><a-tag :color="statusColor(record.status)">{{statusName[record.status]||record.status}}</a-tag></template></a-table-column><a-table-column title="标签"><template #cell="{record}"><a-space wrap><a-tag v-for="tag in record.tags" :key="tag">{{tag}}</a-tag><span v-if="!record.tags?.length">—</span></a-space></template></a-table-column><a-table-column title="创建时间"><template #cell="{record}">{{format(record.created_at)}}</template></a-table-column><a-table-column title="更新时间"><template #cell="{record}">{{format(record.updated_at)}}</template></a-table-column></template><template #empty><a-empty description="暂无知识文章"/></template></a-table><div class="arco-pagination"><span>共 {{total}} 条，第 {{page}} / {{totalPages}} 页</span><a-pagination :current="page" :page-size="pageSize" :total="total" @change="changePage"/></div></a-card></section></template>
