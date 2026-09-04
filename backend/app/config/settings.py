@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     auth_mode: str = "dev"
     jwt_secret: str = "atlas-development-secret-change-me"
     auth_token_expire_minutes: int = 12 * 60
+    llm_base_url: str = ""
+    llm_api_key: str = ""
+    llm_model: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
