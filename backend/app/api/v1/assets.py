@@ -9,10 +9,11 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.core.security import actor_id, get_current_user_optional
 from app.models import Asset, Deployment, PurchaseRequest, User
-from app.schemas.assets import (AssetReceive, DeployAsset, InventoryLocationCreate,
+from app.schemas.assets import (AssetReceive, CompleteTransfer, DeployAsset, InventoryLocationCreate,
                                 PurchaseDecision, PurchaseRejection,
                                 PurchaseRequestCreate, StockAsset, InventoryReceive,
-                                DeploymentCreate)
+                                DeploymentCreate, RecoverAsset, RetireAsset,
+                                TransferAsset)
 from app.services import assets as service
 
 router = APIRouter()
@@ -64,6 +65,26 @@ def receive_into_inventory(payload: InventoryReceive, db: Session = Depends(get_
 @router.put("/assets/{asset_id}/deploy", tags=["assets"])
 def deploy_asset(asset_id: UUID, payload: DeployAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.asset_out(db, service.deploy_asset(db, asset_id, payload, actor_id(user)))
+
+
+@router.put("/assets/{asset_id}/transfer", tags=["assets"])
+def transfer_asset(asset_id: UUID, payload: TransferAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    return service.asset_out(db, service.transfer_asset(db, asset_id, payload, actor_id(user)))
+
+
+@router.put("/assets/{asset_id}/complete-transfer", tags=["assets"])
+def complete_transfer(asset_id: UUID, payload: CompleteTransfer, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    return service.asset_out(db, service.complete_transfer(db, asset_id, payload, actor_id(user)))
+
+
+@router.put("/assets/{asset_id}/retire", tags=["assets"])
+def retire_asset(asset_id: UUID, payload: RetireAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    return service.asset_out(db, service.retire_asset(db, asset_id, payload, actor_id(user)))
+
+
+@router.put("/assets/{asset_id}/recover", tags=["assets"])
+def recover_asset(asset_id: UUID, payload: RecoverAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    return service.asset_out(db, service.recover_asset(db, asset_id, payload, actor_id(user)))
 
 
 @router.post("/deployments", tags=["assets"])

@@ -100,3 +100,34 @@ class InventoryReceive(StockAsset):
 
 class DeploymentCreate(DeployAsset):
     asset_id: UUID
+
+
+class TransferAsset(BaseModel):
+    target_organization_id: UUID | None = None
+    operator_id: UUID | None = None
+    notes: str | None = None
+    version: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def target_or_notes(self):
+        if self.target_organization_id is None and not self.notes:
+            raise ValueError("必须提供目标组织或调拨备注")
+        return self
+
+
+class CompleteTransfer(StockAsset):
+    pass
+
+
+class RetireAsset(BaseModel):
+    reason: str = Field(min_length=1)
+    disposition: Literal["RMA", "SCRAPPED", "RETURNED_TO_VENDOR"] = "SCRAPPED"
+    end_active_relationships: bool = True
+    operator_id: UUID | None = None
+    version: int | None = Field(default=None, ge=1)
+
+
+class RecoverAsset(BaseModel):
+    reason: str = Field(min_length=1)
+    operator_id: UUID | None = None
+    version: int | None = Field(default=None, ge=1)
