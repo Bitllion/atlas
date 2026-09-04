@@ -156,3 +156,33 @@ export interface KnowledgeArticleDetail extends KnowledgeArticle { attachments: 
 export interface ArticlePayload { title: string; content: string; type: ArticleType; tags: string[] | null }
 export interface SearchItem { resource_type: 'object' | 'asset' | 'work_order' | 'knowledge_article'; id: string; name: string; summary: string | null }
 export interface SearchResult extends Page<SearchItem> { query: string }
+
+export interface Notification {
+  id: string; recipient_id: string; type: string; title: string; message: string
+  entity_type: string | null; entity_id: string | null; is_read: boolean; read_at: string | null; created_at: string
+}
+
+export type WorkflowStatus = 'RUNNING' | 'COMPLETED' | 'REJECTED' | 'CANCELLED'
+export type TaskStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+export interface WorkflowTask {
+  id: string; instance_id: string; node_id: string; assignee_id: string; status: TaskStatus
+  comment: string | null; actioned_by: string | null; actioned_at: string | null; created_at: string; updated_at: string
+}
+export interface WorkflowInstance {
+  id: string; definition_id: string; entity_type: string; entity_id: string; business_key: string | null
+  current_node_id: string | null; status: WorkflowStatus; started_by: string; started_at: string
+  completed_at: string | null; version: number; created_at: string; updated_at: string
+}
+
+export interface QualityOverviewItem {
+  object_type: string; total: number; missing_serial_number: number; missing_manufacturer: number
+  missing_model: number; missing_spec: number; spec_status: { stale: number; unknown: number }; low_confidence: number
+}
+export interface QualityDetailItem {
+  id: string; name: string; object_type: string; missing_fields: string[]
+  data_status: string | null; confidence: string | null
+}
+export interface QualityUnattributedItem {
+  id: string; name: string; object_type: string; serial_number: string | null
+  manufacturer: string | null; model: string | null; status: ObjectStatus
+}

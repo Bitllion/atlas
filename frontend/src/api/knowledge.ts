@@ -1,6 +1,12 @@
 import { apiClient } from './client'
 import type { ArticleLink, ArticlePayload, InfrastructureObject, Items, KnowledgeArticle, KnowledgeArticleDetail, Page } from '../types'
 
+export interface AskResponse {
+  answer: string | null
+  configured: boolean
+  sources: Array<{ id: string; title: string; type: string; summary: string }>
+}
+
 export const knowledgeApi = {
   list: (params: { page: number; page_size: number; type?: string; status?: string }) => apiClient.get<Page<KnowledgeArticle>>('/knowledge/articles', { params }),
   get: (id: string) => apiClient.get<KnowledgeArticleDetail>(`/knowledge/articles/${id}`),
@@ -10,4 +16,5 @@ export const knowledgeApi = {
   linkObjects: (id: string, objects: string[], relationReason?: string) => apiClient.post<Items<ArticleLink>>(`/knowledge/articles/${id}/link-objects`, { objects, relation_reason: relationReason || null }),
   objects: () => apiClient.get<Page<InfrastructureObject>>('/objects', { params: { page: 1, page_size: 100 } }),
   downloadAttachment: (articleId: string, attachmentId: string) => apiClient.get<Blob>(`/knowledge/articles/${articleId}/attachments/${attachmentId}/download`, { responseType: 'blob' }),
+  ask: (question: string) => apiClient.post<AskResponse>('/knowledge/ask', { question }),
 }

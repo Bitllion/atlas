@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { Asset, AssetDetail, InventoryLocation, InventoryLocationPayload, Items, LifecycleEvent, Page, PurchaseItem, PurchaseRequest } from '../types'
+import type { Asset, AssetDetail, InventoryLocation, InventoryLocationPayload, Items, LifecycleEvent, Page, PurchaseItem, PurchaseRequest, WorkflowInstance } from '../types'
 
 export interface PurchasePayload { title: string; items: PurchaseItem[]; estimated_cost?: number; currency: string; justification?: string; preferred_vendor?: string; requester_id: string }
 
@@ -17,6 +17,7 @@ export const assetApi = {
   createPurchase: (payload: PurchasePayload) => apiClient.post<PurchaseRequest>('/purchase-requests', payload),
   approvePurchase: (id: string, userId: string) => apiClient.post<PurchaseRequest>(`/purchase-requests/${id}/approve`, { approved_by: userId }),
   rejectPurchase: (id: string, userId: string, reason: string) => apiClient.post<PurchaseRequest>(`/purchase-requests/${id}/reject`, { rejected_by: userId, rejection_reason: reason }),
+  getPurchaseWorkflow: (id: string) => apiClient.get<WorkflowInstance>(`/purchase-requests/${id}/workflow`),
   createLocation: (payload: InventoryLocationPayload) => apiClient.post<InventoryLocation>('/inventory-locations', payload),
   locations: () => apiClient.get<Page<InventoryLocation>>('/inventory-locations', { params: { page: 1, page_size: 200 } }),
 }

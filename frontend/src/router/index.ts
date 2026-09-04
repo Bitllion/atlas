@@ -24,6 +24,8 @@ const router = createRouter({
     { path: '/work-orders', name: 'work-orders', component: () => import('../views/WorkOrderListView.vue') },
     { path: '/work-orders/new', name: 'work-order-create', component: () => import('../views/WorkOrderCreateView.vue') },
     { path: '/work-orders/:id', name: 'work-order-detail', component: () => import('../views/WorkOrderDetailView.vue') },
+    { path: '/approvals', name: 'approvals', component: () => import('../views/ApprovalsView.vue') },
+    { path: '/quality', name: 'quality', component: () => import('../views/QualityView.vue') },
     { path: '/admin/users', name: 'admin-users', component: () => import('../views/UserManagementView.vue') },
     { path: '/admin/organizations', name: 'admin-organizations', component: () => import('../views/OrganizationManagementView.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/objects' },
