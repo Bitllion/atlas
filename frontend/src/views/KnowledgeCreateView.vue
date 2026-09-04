@@ -1,0 +1,9 @@
+<script setup lang="ts">
+import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { knowledgeApi } from '../api/knowledge'
+import type { ArticleType } from '../types'
+const router=useRouter(),saving=ref(false),error=ref(''),form=reactive({title:'',type:'SOP' as ArticleType,content:'',tags:''})
+async function submit(){error.value='';if(!form.title.trim()||!form.content.trim()){error.value='标题和内容不能为空';return}saving.value=true;try{const {data}=await knowledgeApi.create({title:form.title.trim(),type:form.type,content:form.content.trim(),tags:form.tags.split(',').map(v=>v.trim()).filter(Boolean)});await router.push(`/knowledge/${data.id}`)}finally{saving.value=false}}
+</script>
+<template><section class="page narrow"><RouterLink class="back" to="/knowledge">← 返回知识库</RouterLink><header class="page-header"><div><p class="eyebrow">CREATE ARTICLE</p><h1>新建知识文章</h1><p class="muted">创建草稿后可继续上传附件和关联基础设施对象</p></div></header><form class="card object-form knowledge-form" @submit.prevent="submit"><div class="form-grid"><label><span>标题 *</span><input v-model="form.title" maxlength="255" placeholder="输入文章标题" /></label><label><span>分类 *</span><select v-model="form.type"><option value="SOP">标准操作流程</option><option value="TROUBLESHOOTING">故障排查</option><option value="FAQ">常见问题</option><option value="BEST_PRACTICE">最佳实践</option></select></label></div><label class="wide-field"><span>标签</span><input v-model="form.tags" placeholder="多个标签使用英文逗号分隔" /></label><label class="wide-field"><span>文章内容 *</span><textarea v-model="form.content" rows="18" placeholder="输入文章正文"></textarea></label><p v-if="error" class="field-error">{{error}}</p><div class="form-actions"><RouterLink class="button" to="/knowledge">取消</RouterLink><button class="button primary" :disabled="saving">{{saving?'正在创建…':'创建草稿'}}</button></div></form></section></template>

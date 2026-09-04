@@ -3,7 +3,12 @@ import { createRouter, createWebHistory } from 'vue-router'
 export default createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', redirect: '/objects' },
+    { path: '/', redirect: '/dashboard' },
+    { path: '/dashboard', name: 'dashboard', component: () => import('../views/DashboardView.vue') },
+    { path: '/search', name: 'search', component: () => import('../views/SearchView.vue') },
+    { path: '/knowledge', name: 'knowledge', component: () => import('../views/KnowledgeListView.vue') },
+    { path: '/knowledge/new', name: 'knowledge-create', component: () => import('../views/KnowledgeCreateView.vue') },
+    { path: '/knowledge/:id', name: 'knowledge-detail', component: () => import('../views/KnowledgeDetailView.vue') },
     { path: '/objects', name: 'objects', component: () => import('../views/ObjectListView.vue') },
     { path: '/objects/new', name: 'object-create', component: () => import('../views/ObjectFormView.vue') },
     { path: '/objects/:id', name: 'object-detail', component: () => import('../views/ObjectDetailView.vue') },
