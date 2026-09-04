@@ -1,4 +1,4 @@
-:root { color: #172033; background: #f3f5f8; font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; font-synthesis: none; }
+:root { --primary-6: 22, 93, 255; color: #1d2129; background: #f2f3f5; font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; font-synthesis: none; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 1080px; }
 button, input, select, textarea { color: inherit; font: inherit; }
@@ -111,3 +111,70 @@ th, td { padding: 13px 14px; border-bottom: 1px solid #e8ebf0; white-space: nowr
 .checkbox-field { flex-direction: row; align-items: center; }.checkbox-field input { width: 16px; height: 16px; }
 .login-page { display: grid; min-height: 100vh; place-items: center; padding: 32px; background: linear-gradient(135deg, #eef3ff 0%, #f6f8fb 55%, #e9eef8 100%); }.login-card { width: min(420px, 100%); padding: 34px; }.login-header { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }.login-header .brand-mark { flex: 0 0 42px; width: 42px; height: 42px; color: white; font-size: 21px; font-weight: 700; }.login-header h1 { margin: 0; color: #15213a; font-size: 24px; }.login-header p { margin: 5px 0 0; color: #778196; font-size: 12px; }.login-form { display: grid; gap: 18px; }.login-form .button { width: 100%; margin-top: 2px; }.login-error { margin: -4px 0; color: #b8323e; font-size: 13px; }.demo-account { margin: 24px 0 0; padding-top: 18px; border-top: 1px solid #e5e8ee; color: #778196; font-size: 12px; text-align: center; }
 @media (max-width: 1250px) { .metric-grid { grid-template-columns: repeat(3, 1fr); } }
+
+/* Arco console baseline */
+.atlas-layout { min-height: 100vh; background: #f2f3f5; }
+.atlas-sider { position: fixed !important; z-index: 20; inset: 0 auto 0 0; height: 100vh; border-right: 1px solid #e5e6eb; background: #fff !important; box-shadow: 1px 0 4px rgb(0 0 0 / 3%); }
+.atlas-sider .arco-layout-sider-children { display: flex; flex-direction: column; overflow: hidden; }
+.atlas-brand { display: flex; flex: 0 0 64px; width: 100%; align-items: center; gap: 10px; padding: 0 13px; border: 0; border-bottom: 1px solid #f2f3f5; color: #1d2129; background: #fff; }
+.atlas-brand-mark { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; border-radius: 6px; color: #fff; background: #165dff; font-size: 17px; font-weight: 700; }
+.atlas-brand-name { font-size: 20px; font-weight: 700; letter-spacing: .02em; }
+.atlas-menu { flex: 1; overflow-x: hidden; overflow-y: auto; padding: 8px 4px 20px; background: #fff !important; }
+.atlas-menu .arco-menu-item { border-radius: 4px; color: #4e5969; }
+.atlas-menu .arco-menu-selected { color: #165dff !important; background: #e8f3ff !important; font-weight: 500; }
+.atlas-menu .arco-menu-item-group-title { color: #86909c; font-size: 12px; }
+.atlas-main-layout { min-width: 0; margin-left: 220px; transition: margin-left .2s cubic-bezier(.34,.69,.1,1); }
+.atlas-sider-collapsed + .atlas-main-layout { margin-left: 48px; }
+.atlas-header { position: sticky; z-index: 10; top: 0; display: flex; height: 64px; align-items: center; justify-content: space-between; padding: 0 24px 0 16px; border-bottom: 1px solid #e5e6eb; background: #fff; }
+.collapse-button { color: #4e5969 !important; font-size: 18px !important; }
+.header-actions { display: flex; align-items: center; gap: 14px; }
+.header-search { width: 260px; }
+.user-entry { display: flex; align-items: center; gap: 9px; padding: 4px 2px; border: 0; color: #4e5969; background: transparent; text-align: left; }
+.user-entry .arco-avatar { color: #165dff; background: #e8f3ff; font-weight: 600; }
+.user-meta { display: flex; min-width: 84px; flex-direction: column; }
+.user-meta strong { color: #1d2129; font-size: 13px; font-weight: 500; }
+.user-meta small { margin-top: 2px; color: #86909c; font-size: 11px; }
+.notification-panel { width: 340px; }
+.notification-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 12px; border-bottom: 1px solid #e5e6eb; }
+.notification-panel-list { max-height: 400px; overflow-y: auto; }
+.notification-row { display: flex; width: 100%; gap: 10px; padding: 13px 6px; border: 0; border-bottom: 1px solid #f2f3f5; background: #fff; text-align: left; }
+.notification-row:hover, .notification-row.unread { background: #f7f8fa; }
+.notification-dot { flex: 0 0 7px; width: 7px; height: 7px; margin-top: 6px; border-radius: 50%; background: #c9cdd4; }
+.notification-row.unread .notification-dot { background: #165dff; }
+.notification-row > span:last-child { min-width: 0; }
+.notification-row strong, .notification-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notification-row strong { max-width: 295px; color: #1d2129; font-size: 13px; }
+.notification-row small { margin-top: 5px; color: #86909c; font-size: 11px; }
+.atlas-content { min-height: calc(100vh - 64px); background: #f2f3f5; }
+.arco-page { max-width: 1600px; padding: 28px 32px 48px; }
+.arco-page .page-header { align-items: center; margin-bottom: 20px; }
+.arco-page .page-header h1 { margin: 3px 0 6px; color: #1d2129; font-size: 24px; }
+.arco-page .eyebrow { color: #165dff; letter-spacing: .08em; }
+.dashboard-spin { display: block; min-height: 320px; }
+.arco-metric-grid { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.arco-metric-card, .arco-dashboard-grid > .arco-card, .arco-filter-card, .arco-table-card { border-radius: 8px; box-shadow: 0 1px 3px rgb(0 0 0 / 4%); }
+.arco-metric-card .arco-card-body { padding: 20px; }
+.metric-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; color: #4e5969; font-size: 13px; }
+.metric-icon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 8px; font-size: 17px; }
+.metric-icon.blue { color: #165dff; background: #e8f3ff; }.metric-icon.cyan { color: #0fc6c2; background: #e8fffb; }.metric-icon.orange { color: #ff7d00; background: #fff7e8; }.metric-icon.green { color: #00b42a; background: #e8ffea; }.metric-icon.purple { color: #722ed1; background: #f5e8ff; }
+.arco-metric-card small { display: block; margin-top: 6px; color: #86909c; }
+.arco-dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.arco-dashboard-grid .workorder-distribution { grid-column: 1 / -1; }
+.distribution-list { display: grid; gap: 15px; padding: 4px 0; }
+.distribution-list > div { display: grid; grid-template-columns: 110px 1fr 36px; align-items: center; gap: 14px; color: #4e5969; font-size: 13px; }
+.distribution-list strong { color: #1d2129; text-align: right; }
+.status-statistics { display: flex; flex-wrap: wrap; gap: 12px; }
+.status-statistics > div { min-width: 130px; padding: 14px 18px; border-radius: 6px; background: #f7f8fa; }
+.status-statistics > div > span { color: #86909c; font-size: 12px; }
+.arco-filter-card { margin-bottom: 16px; }
+.arco-filter-card .arco-card-body { padding: 16px 20px 0; }
+.arco-filter-card .arco-form-item { margin-right: 16px; margin-bottom: 16px; }
+.arco-filter-card .arco-input-wrapper, .arco-filter-card .arco-select-view { width: 220px; }
+.arco-table-card { overflow: hidden; }
+.arco-table-card > .arco-card-body { padding: 0; }
+.arco-table-card .arco-table-tr { cursor: pointer; }
+.arco-table-card .arco-table-th { background: #f7f8fa; }
+.object-name { font-weight: 500; }
+.table-actions { display: flex; gap: 2px; }
+.arco-pagination { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-top: 1px solid #e5e6eb; color: #86909c; font-size: 13px; }
+@media (max-width: 1250px) { .arco-metric-grid { grid-template-columns: repeat(3, 1fr); } }
