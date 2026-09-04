@@ -21,8 +21,9 @@ def lifecycle_context():
                     password_hash="test", organization_id=source.id)
         db.add(user)
         db.flush()
-        admin_role = db.query(Role).filter(Role.name == "admin").one()
-        db.add(UserRole(user_id=user.id, role_id=admin_role.id, granted_by=user.id))
+        roles = db.query(Role).filter(Role.name.in_(("admin", "operator"))).all()
+        for role in roles:
+            db.add(UserRole(user_id=user.id, role_id=role.id, granted_by=user.id))
         db.commit()
         return {"headers": {"X-User-Id": str(user.id)}, "target_org_id": str(target.id)}
 
@@ -34,9 +35,13 @@ def _new_stock_asset(client, type_ids, context, marker):
         "items": [{"object_type_id": type_ids["SERVER"], "quantity": 1, "model": "GB300"}],
     }, headers=headers)
     assert purchase.status_code == 201, purchase.text
-    approved = client.post(f"/api/v1/purchase-requests/{purchase.json()['id']}/approve",
-                           json={}, headers=headers)
-    assert approved.status_code == 200, approved.text
+    workflow_url = f"/api/v1/purchase-requests/{purchase.json()['id']}/workflow"
+    workflow = client.get(workflow_url, headers=headers)
+    while workflow.json()["status"] == "RUNNING":
+        task = workflow.json()["current_tasks"][0]
+        approved = client.post(f"/api/v1/workflow/tasks/{task['id']}/approve", json={}, headers=headers)
+        assert approved.status_code == 200, approved.text
+        workflow = client.get(workflow_url, headers=headers)
     received = client.post("/api/v1/assets", json={
         "asset_number": f"LIFE-{marker}", "purchase_request_id": purchase.json()["id"],
         "object_type_id": type_ids["SERVER"], "name": f"lifecycle-server-{marker}",

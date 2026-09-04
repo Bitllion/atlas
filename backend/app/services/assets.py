@@ -11,7 +11,7 @@ from app.core.exceptions import ServiceError
 from app.models import (
     Asset, Deployment, InfrastructureObject, InventoryLocation, InventoryRecord,
     ObjectHistory, ObjectRelationship, ObjectSpec, ObjectType, Organization, PurchaseRequest,
-    RelationshipType, User,
+    RelationshipType, User, WorkflowInstance, WorkflowTask,
 )
 from app.schemas.assets import (AssetReceive, CompleteTransfer, DeployAsset, InventoryLocationCreate,
                                 PurchaseDecision, PurchaseRejection,
@@ -80,7 +80,7 @@ def purchase_out(item: PurchaseRequest) -> dict[str, Any]:
         "id", "request_number", "title", "object_type_id", "model", "quantity",
         "estimated_cost", "currency", "justification", "preferred_vendor", "items",
         "status", "requester_id", "approved_by", "approved_at", "rejected_by",
-        "rejected_at", "rejection_reason", "created_at", "updated_at")}
+        "rejected_at", "rejection_reason", "workflow_instance_id", "created_at", "updated_at")}
 
 
 def create_purchase(db: Session, payload: PurchaseRequestCreate, header_user: str | None) -> PurchaseRequest:
@@ -102,6 +102,13 @@ def create_purchase(db: Session, payload: PurchaseRequestCreate, header_user: st
         status="PENDING", requester_id=requester,
     )
     db.add(request)
+    db.flush()
+    from app.services import workflow
+    instance = workflow.start_workflow(
+        db, "purchase_approval", "PURCHASE_REQUEST", request.id,
+        request.request_number, requester, commit=False,
+    )
+    request.workflow_instance_id = instance.id
     db.commit()
     db.refresh(request)
     return request
@@ -113,6 +120,14 @@ def decide_purchase(db: Session, request_id: UUID, payload: PurchaseDecision | P
         raise ServiceError(404, "PurchaseRequestNotFound", "采购申请不存在")
     if request.status != "PENDING":
         raise ServiceError(409, "InvalidPurchaseTransition", f"采购申请状态 {request.status} 不允许审批")
+    active_workflow = db.scalar(select(WorkflowInstance.id).where(
+        WorkflowInstance.entity_type == "PURCHASE_REQUEST",
+        WorkflowInstance.entity_id == request.id,
+        WorkflowInstance.status == "RUNNING",
+        WorkflowInstance.deleted_at.is_(None),
+    ))
+    if active_workflow is not None:
+        raise ServiceError(409, "PurchaseWorkflowActive", "采购申请已进入工作流，请通过待办任务审批")
     operator = _required_user(db, payload.approved_by if approve else payload.rejected_by, header_user, "审批人")
     if approve:
         request.status, request.approved_by, request.approved_at = "APPROVED", operator, _now()
@@ -123,6 +138,54 @@ def decide_purchase(db: Session, request_id: UUID, payload: PurchaseDecision | P
     db.commit()
     db.refresh(request)
     return request
+
+
+def purchase_workflow(db: Session, request_id: UUID, user: User) -> tuple[PurchaseRequest, WorkflowInstance, list[WorkflowTask]]:
+    query = select(PurchaseRequest).join(User, User.id == PurchaseRequest.requester_id).where(PurchaseRequest.id == request_id)
+    if not has_global_resource_access(db, user):
+        query = query.where(User.organization_id == user.organization_id)
+    request = db.scalar(query)
+    if request is None:
+        raise ServiceError(404, "PurchaseRequestNotFound", "采购申请不存在")
+    instance = db.scalar(select(WorkflowInstance).where(
+        WorkflowInstance.entity_type == "PURCHASE_REQUEST",
+        WorkflowInstance.entity_id == request.id,
+        WorkflowInstance.deleted_at.is_(None),
+    ).order_by(WorkflowInstance.started_at.desc()))
+    if instance is None:
+        raise ServiceError(404, "PurchaseWorkflowNotFound", "采购申请未关联工作流")
+    tasks = list(db.scalars(select(WorkflowTask).where(
+        WorkflowTask.instance_id == instance.id,
+        WorkflowTask.status == "PENDING",
+        WorkflowTask.deleted_at.is_(None),
+    ).order_by(WorkflowTask.created_at.asc(), WorkflowTask.id.asc())))
+    return request, instance, tasks
+
+
+def _purchase_workflow_callback(db: Session, instance: WorkflowInstance) -> None:
+    request = db.scalar(select(PurchaseRequest).where(PurchaseRequest.id == instance.entity_id).with_for_update())
+    if request is None or request.status != "PENDING":
+        return
+    final_task = db.scalar(select(WorkflowTask).where(
+        WorkflowTask.instance_id == instance.id,
+        WorkflowTask.status.in_(("APPROVED", "REJECTED")),
+    ).order_by(WorkflowTask.actioned_at.desc(), WorkflowTask.id.desc()))
+    now = _now()
+    if instance.status == "COMPLETED":
+        request.status = "APPROVED"
+        request.approved_by = final_task.actioned_by if final_task else None
+        request.approved_at = final_task.actioned_at if final_task else now
+    elif instance.status == "TERMINATED":
+        request.status = "REJECTED"
+        request.rejected_by = final_task.actioned_by if final_task else None
+        request.rejected_at = final_task.actioned_at if final_task else now
+        request.rejection_reason = final_task.comment if final_task else None
+    request.updated_at = now
+
+
+from app.services import workflow as workflow_service
+
+workflow_service.register_callback("PURCHASE_REQUEST", _purchase_workflow_callback)
 
 
 def _create_object(db: Session, item: AssetReceive, operator: UUID | None,

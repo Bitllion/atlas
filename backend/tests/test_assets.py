@@ -17,8 +17,9 @@ def user_headers():
         user = User(username=f"asset-user-{marker}", email=f"{marker}@example.test", password_hash="test", organization_id=organization.id)
         db.add(user)
         db.flush()
-        admin_role = db.query(Role).filter(Role.name == "admin").one()
-        db.add(UserRole(user_id=user.id, role_id=admin_role.id, granted_by=user.id))
+        roles = db.query(Role).filter(Role.name.in_(("admin", "operator"))).all()
+        for role in roles:
+            db.add(UserRole(user_id=user.id, role_id=role.id, granted_by=user.id))
         db.commit()
         db.refresh(user)
         return {"X-User-Id": str(user.id)}
@@ -36,6 +37,20 @@ def _purchase(client, type_ids, marker: str, user_headers, quantity: int = 2):
     }, headers=user_headers)
 
 
+def _approve_purchase_workflow(client, purchase_id: str, user_headers):
+    workflow = client.get(f"/api/v1/purchase-requests/{purchase_id}/workflow", headers=user_headers)
+    assert workflow.status_code == 200, workflow.text
+    while workflow.json()["status"] == "RUNNING":
+        task = workflow.json()["current_tasks"][0]
+        approved = client.post(
+            f"/api/v1/workflow/tasks/{task['id']}/approve",
+            json={"comment": "预算已确认"}, headers=user_headers,
+        )
+        assert approved.status_code == 200, approved.text
+        workflow = client.get(f"/api/v1/purchase-requests/{purchase_id}/workflow", headers=user_headers)
+    return workflow
+
+
 def test_purchase_receive_stock_deploy_full_lifecycle(client, type_ids, user_headers):
     marker = uuid4().hex
     purchase = _purchase(client, type_ids, marker, user_headers)
@@ -43,9 +58,8 @@ def test_purchase_receive_stock_deploy_full_lifecycle(client, type_ids, user_hea
     purchase_id = purchase.json()["id"]
     assert purchase.json()["status"] == "PENDING"
 
-    approved = client.post(f"/api/v1/purchase-requests/{purchase_id}/approve", json={"comment": "预算已确认"}, headers=user_headers)
-    assert approved.status_code == 200, approved.text
-    assert approved.json()["status"] == "APPROVED"
+    approved = _approve_purchase_workflow(client, purchase_id, user_headers)
+    assert approved.json()["status"] == "COMPLETED"
 
     received = client.post("/api/v1/assets", json=[
         {"asset_number": f"AST-{marker}-1", "purchase_request_id": purchase_id,
@@ -114,8 +128,9 @@ def test_unapproved_purchase_cannot_be_received(client, type_ids, user_headers):
 def test_purchase_rejection(client, type_ids, user_headers):
     marker = uuid4().hex
     purchase = _purchase(client, type_ids, marker, user_headers, quantity=1)
-    rejected = client.post(f"/api/v1/purchase-requests/{purchase.json()['id']}/reject", json={"rejection_reason": "预算不足"}, headers=user_headers)
+    workflow = client.get(f"/api/v1/purchase-requests/{purchase.json()['id']}/workflow", headers=user_headers).json()
+    rejected = client.post(f"/api/v1/workflow/tasks/{workflow['current_tasks'][0]['id']}/reject", json={"comment": "预算不足"}, headers=user_headers)
     assert rejected.status_code == 200
-    assert rejected.json()["status"] == "REJECTED"
+    assert rejected.json()["status"] == "TERMINATED"
     repeated = client.post(f"/api/v1/purchase-requests/{purchase.json()['id']}/approve", json={})
     assert repeated.status_code == 409

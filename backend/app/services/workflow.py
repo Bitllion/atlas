@@ -79,7 +79,7 @@ def validate_topology(definition: WorkflowDefinition) -> None:
         raise ServiceError(400, "InvalidWorkflowDefinition", "工作流必须是连通的顺序审批链")
 
 
-def _assignees(db: Session, node: dict) -> list[UUID]:
+def _assignees(db: Session, node: dict, organization_id: UUID | None = None) -> list[UUID]:
     user_ids: set[UUID] = set()
     raw_user_id = node.get("assignee_user_id", node.get("user_id"))
     if raw_user_id:
@@ -92,7 +92,7 @@ def _assignees(db: Session, node: dict) -> list[UUID]:
             user_ids.add(exists)
     role_name = node.get("assignee_role")
     if role_name:
-        users = db.scalars(
+        query = (
             select(User.id)
             .join(UserRole, UserRole.user_id == User.id)
             .join(Role, Role.id == UserRole.role_id)
@@ -101,6 +101,9 @@ def _assignees(db: Session, node: dict) -> list[UUID]:
                 UserRole.deleted_at.is_(None), User.is_active.is_(True), User.deleted_at.is_(None),
             )
         )
+        if organization_id is not None:
+            query = query.where(User.organization_id == organization_id)
+        users = db.scalars(query)
         user_ids.update(users)
     if not user_ids:
         raise ServiceError(400, "WorkflowAssigneeNotFound", f"节点 {node['id']} 没有可用审批人")
@@ -111,7 +114,8 @@ def _create_node_tasks(db: Session, instance: WorkflowInstance, node: dict) -> N
     if node.get("type") != "approval":
         raise ServiceError(400, "UnsupportedWorkflowNode", "当前版本仅支持审批节点和终点节点")
     instance.current_node_id = node["id"]
-    for assignee_id in _assignees(db, node):
+    organization_id = db.scalar(select(User.organization_id).where(User.id == instance.started_by))
+    for assignee_id in _assignees(db, node, organization_id):
         db.add(WorkflowTask(instance_id=instance.id, node_id=node["id"], assignee_id=assignee_id))
 
 
@@ -127,7 +131,7 @@ def _finish(db: Session, instance: WorkflowInstance, status: str) -> None:
         logger.info("PURCHASE_REQUEST workflow %s ended with no business callback registered", instance.id)
 
 
-def start_workflow(db: Session, definition_code: str, entity_type: str, entity_id: UUID, business_key: str | None, initiator: UUID) -> WorkflowInstance:
+def start_workflow(db: Session, definition_code: str, entity_type: str, entity_id: UUID, business_key: str | None, initiator: UUID, *, commit: bool = True) -> WorkflowInstance:
     definition = db.scalar(select(WorkflowDefinition).where(WorkflowDefinition.code == definition_code, WorkflowDefinition.is_active.is_(True), WorkflowDefinition.deleted_at.is_(None)))
     if definition is None:
         raise ServiceError(404, "WorkflowDefinitionNotFound", "工作流定义不存在或未启用")
@@ -140,8 +144,11 @@ def start_workflow(db: Session, definition_code: str, entity_type: str, entity_i
         _finish(db, instance, "COMPLETED")
     else:
         _create_node_tasks(db, instance, first)
-    db.commit()
-    db.refresh(instance)
+    if commit:
+        db.commit()
+        db.refresh(instance)
+    else:
+        db.flush()
     return instance
 
 
@@ -171,6 +178,9 @@ def approve_task(db: Session, task_id: UUID, actor: UUID, comment: str | None = 
         sibling.status, sibling.actioned_at = "SKIPPED", now
     next_node = _next_node(definition, task.node_id)
     if next_node is None or next_node.get("type") in {"end", "terminal"}:
+        # Domain callbacks may query the terminal task to persist the final
+        # approver/comment. SessionLocal disables autoflush, so make it visible.
+        db.flush()
         _finish(db, instance, "COMPLETED")
     else:
         instance.version += 1
@@ -187,6 +197,7 @@ def reject_task(db: Session, task_id: UUID, actor: UUID, comment: str | None = N
     siblings = db.scalars(select(WorkflowTask).where(WorkflowTask.instance_id == instance.id, WorkflowTask.node_id == task.node_id, WorkflowTask.status == "PENDING", WorkflowTask.id != task.id, WorkflowTask.deleted_at.is_(None)).with_for_update()).all()
     for sibling in siblings:
         sibling.status, sibling.actioned_at = "SKIPPED", now
+    db.flush()
     _finish(db, instance, "TERMINATED")
     db.commit()
     db.refresh(instance)

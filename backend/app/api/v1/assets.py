@@ -15,6 +15,7 @@ from app.schemas.assets import (AssetReceive, CompleteTransfer, DeployAsset, Inv
                                 DeploymentCreate, RecoverAsset, RetireAsset,
                                 TransferAsset)
 from app.services import assets as service
+from app.api.v1.workflow import instance_out, task_out
 
 router = APIRouter()
 
@@ -24,9 +25,12 @@ def create_purchase_request(payload: PurchaseRequestCreate, db: Session = Depend
     return service.purchase_out(service.create_purchase(db, payload, actor_id(user)))
 
 
-@router.get("/purchase-requests", tags=["assets"], dependencies=[Depends(require_permission("purchase.read"))])
-def list_purchase_requests(db: Session = Depends(get_db)):
-    return {"items": [service.purchase_out(item) for item in db.scalars(select(PurchaseRequest).order_by(PurchaseRequest.created_at.desc()))]}
+@router.get("/purchase-requests", tags=["assets"])
+def list_purchase_requests(db: Session = Depends(get_db), user: User = Depends(require_permission("purchase.read"))):
+    query = select(PurchaseRequest).join(User, User.id == PurchaseRequest.requester_id)
+    if not service.has_global_resource_access(db, user):
+        query = query.where(User.organization_id == user.organization_id)
+    return {"items": [service.purchase_out(item) for item in db.scalars(query.order_by(PurchaseRequest.created_at.desc()))]}
 
 
 @router.post("/purchase-requests/{request_id}/approve", tags=["assets"], dependencies=[Depends(require_permission("purchase.approve"))])
@@ -37,6 +41,18 @@ def approve_purchase_request(request_id: UUID, payload: PurchaseDecision, db: Se
 @router.post("/purchase-requests/{request_id}/reject", tags=["assets"], dependencies=[Depends(require_permission("purchase.approve"))])
 def reject_purchase_request(request_id: UUID, payload: PurchaseRejection, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.purchase_out(service.decide_purchase(db, request_id, payload, False, actor_id(user)))
+
+
+@router.get("/purchase-requests/{request_id}/workflow", tags=["assets"])
+def get_purchase_request_workflow(
+    request_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_permission("purchase.read")),
+):
+    _, instance, tasks = service.purchase_workflow(db, request_id, user)
+    result = instance_out(instance)
+    result["current_tasks"] = [task_out(task) for task in tasks]
+    return result
 
 
 @router.post("/inventory-locations", status_code=status.HTTP_201_CREATED, tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
