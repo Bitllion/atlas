@@ -101,3 +101,26 @@ export interface ImportJob {
   updated_at: string
   version: number
 }
+
+export type WorkOrderType = 'FAULT' | 'REPAIR' | 'INSPECTION' | 'CHANGE'
+export type WorkOrderPriority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+export type WorkOrderStatus = 'CREATED' | 'ASSIGNED' | 'PROCESSING' | 'WAITING' | 'SUSPENDED' | 'RESOLVED' | 'CLOSED' | 'CANCELLED' | 'REOPENED'
+export interface RepairRecord {
+  id: string; work_order_id: string; object_id: string; repair_type: string; description: string
+  parts_used: unknown[] | null; repair_result: string; engineer_id: string; started_at: string
+  completed_at: string | null; verification_notes: string | null; created_at: string; updated_at: string
+}
+export interface ReplacementEvent {
+  id: string; repair_record_id: string | null; old_object_id: string; new_object_id: string
+  replacement_reason: string; old_object_disposition: string; engineer_id: string
+  replaced_at: string; notes: string | null; created_at: string
+}
+export interface WorkOrderTimelineEvent { type: 'STATUS' | 'REPAIR' | 'REPLACEMENT'; status?: WorkOrderStatus; record_id?: string; at: string; operator_id: string }
+export interface WorkOrder {
+  id: string; work_order_number: string; title: string; type: WorkOrderType; priority: WorkOrderPriority
+  status: WorkOrderStatus; related_object_id: string; description: string | null; fault_record_id: string | null
+  assigned_to: string | null; created_by: string; resolved_by: string | null; closed_by: string | null
+  assigned_at: string | null; resolved_at: string | null; closed_at: string | null
+  version: number; created_at: string; updated_at: string
+}
+export interface WorkOrderDetail extends WorkOrder { repairs: RepairRecord[]; replacements: ReplacementEvent[]; timeline: WorkOrderTimelineEvent[] }

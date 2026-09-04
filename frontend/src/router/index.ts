@@ -15,6 +15,9 @@ export default createRouter({
     { path: '/assets/:id', name: 'asset-detail', component: () => import('../views/AssetDetailView.vue') },
     { path: '/purchase-requests', name: 'purchase-requests', component: () => import('../views/PurchaseRequestsView.vue') },
     { path: '/inventory', name: 'inventory', component: () => import('../views/InventoryView.vue') },
+    { path: '/work-orders', name: 'work-orders', component: () => import('../views/WorkOrderListView.vue') },
+    { path: '/work-orders/new', name: 'work-order-create', component: () => import('../views/WorkOrderCreateView.vue') },
+    { path: '/work-orders/:id', name: 'work-order-detail', component: () => import('../views/WorkOrderDetailView.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/objects' },
   ],
 })
