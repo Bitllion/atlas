@@ -25,6 +25,8 @@
 
 ### Phase 0: 工程初始化
 
+**✅ 状态**：已完成（main, 2026-09-04, 见 commit 7d68bc7）
+
 **优先级**：P0（Infrastructure Core）
 
 **目标**：建立项目骨架，确保前后端可启动、数据库可连接、迁移框架可用。
@@ -51,6 +53,8 @@
 ---
 
 ### Phase 1: Infrastructure Core + Object Explorer
+
+**✅ 状态**：已完成（main, 2026-09-04, 见 commit dc84a6a）
 
 **优先级**：P0（Infrastructure Core）
 
@@ -102,6 +106,8 @@
 
 ### Phase 2: 数据接入层
 
+**✅ 状态**：已完成（main, 2026-09-04, 见 commit 392ee4c）
+
 **优先级**：P1（Asset Management 依赖）
 
 **目标**：实现批量导入能力，支持 Excel/CSV 导入设备清单，为 Asset 模块准备数据。
@@ -143,6 +149,8 @@
 ---
 
 ### Phase 3: Asset Management
+
+**✅ 状态**：已完成（main, 2026-09-04, 见 commit 0b546d3）
 
 **优先级**：P1（Asset Management）
 
@@ -189,6 +197,8 @@
 
 ### Phase 4: Operations Management
 
+**✅ 状态**：已完成（main, 2026-09-04, 见 commit 327759f）
+
 **优先级**：P2（Basic Operations）
 
 **目标**：实现工单、故障、维修管理，支持运维基础流程。
@@ -234,6 +244,8 @@
 
 ### Phase 5: Dashboard 与 Knowledge
 
+**✅ 状态**：已完成（main, 2026-09-04, 见 commit f4acaab）
+
 **优先级**：P2（Dashboard）、P3（Knowledge）
 
 **目标**：实现综合 Dashboard 与知识管理，汇总 Core/Asset/Operations 数据，提供全局视图。
@@ -275,6 +287,8 @@
 ---
 
 ### Phase 6: Agent 采集（非 MVP 必须）
+
+**❌ 状态**：未开始（非 MVP 范围，已预留接口）
 
 **优先级**：P4（Automation）
 
@@ -373,6 +387,21 @@ Phase 1 (Infrastructure Core + Object Explorer)
 6. 前端页面（Vue 3 组件）
 7. 单元测试与集成测试
 8. 文档更新
+
+**实际开发补充规则**（基于 Phase 0-5 经验）：
+
+- **Codex 额度耗尽时切换 claude-code**：若 codex 配额用完，推荐切换到 `claude-code` 继续开发（保持上下文）
+- **测试库自动隔离**：pytest 使用 `atlas_test` 数据库（`DATABASE_URL` 环境变量指定），与开发库 `atlas_dev` 隔离，避免测试污染开发数据
+- **权限点补种**：新增权限点后，需在开发库执行 `seed_permissions.py` 幂等补种（已有不会重复插入）；种子数据用 `seed.py` 初始化
+- **部署命令速查**：
+  - 后端重启：`systemctl restart atlas-api`
+  - 前端更新：`cd frontend && npm run build && cp -r dist /opt/atlas/web/`
+  - 查看日志：`journalctl -u atlas-api -f`
+- **数据库迁移流程**：
+  1. 修改模型：`backend/app/models/*.py`
+  2. 生成迁移：`cd backend && alembic revision --autogenerate -m "描述"`
+  3. 检查迁移脚本：`backend/alembic/versions/xxx_描述.py`
+  4. 执行迁移：`alembic upgrade head`（开发库和生产库都需执行）
 
 ## 5. 每个 Phase 的输出要求
 
