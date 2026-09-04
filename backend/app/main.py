@@ -8,6 +8,7 @@ from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.imports import router as imports_router
 from app.api.v1.operations import router as operations_router
 from app.api.v1.knowledge import router as knowledge_router
+from app.api.v1.workflow import router as workflow_router
 from app.core.exceptions import install_exception_handlers
 
 app = FastAPI(title="Atlas API", version="0.1.0")
@@ -19,6 +20,7 @@ app.include_router(assets_router, prefix="/api/v1")
 app.include_router(operations_router, prefix="/api/v1")
 app.include_router(dashboard_router, prefix="/api/v1")
 app.include_router(knowledge_router, prefix="/api/v1")
+app.include_router(workflow_router, prefix="/api/v1")
 install_exception_handlers(app)
 
 
