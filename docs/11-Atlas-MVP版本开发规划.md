@@ -3,7 +3,15 @@
 | 项目 | 内容 |
 | --- | --- |
 | 版本 | v0.1 |
-| 状态 | 开发规划文档 |
+| 状态 | ✅ MVP 已交付（Phase 0-5, 2026-09-04） |
+
+**交付总览**：
+
+- **核心阶段**：Phase 0-5 已完成并合并至 main 分支（Phase 6 Agent 采集为非 MVP 范围）
+- **提交记录**：见 `git log --oneline` 从 7d68bc7（Phase 0）到 bf83f6d（前端整合）
+- **测试基线**：pytest 65 passed（CI 自动执行，测试库 atlas_test 隔离）
+- **生产部署**：systemd atlas-api + nginx 80 + PostgreSQL 容器 atlas-dev-pg:55433
+- **演示账号**：admin / atlas123456（管理员权限，可访问全部功能）
 
 ## 1. 总体目标
 
@@ -92,15 +100,75 @@ P4 Automation（自动化采集）
 
 ## 4. MVP 验收标准
 
-### 4.1 必达目标
+### 4.1 必达目标（✅ 已实现）
 
 MVP 必须能够：
 
-1. **对象建模**：创建 GB300 Rack、Compute Tray、GPU、BF3 NIC、CDU、Power Shelf，建立 contains/installed_in/connected_to/powered_by 关系
-2. **资产管理**：完整走完采购申请 → 到货验收 → 入库 → 部署流程，查看资产生命周期
-3. **运维管理**：创建故障工单 → 分配工程师 → 更换部件 → 关闭工单，查看维修记录
-4. **数据导入**：批量导入设备清单（Excel/CSV），预览错误并修正
-5. **Dashboard**：查看设备总数、资产状态分布、工单趋势
+1. **对象建模**：创建 GB300 Rack、Compute Tray、GPU、BF3 NIC、CDU、Power Shelf，建立 contains/installed_in/connected_to/powered_by 关系 ✅
+2. **资产管理**：完整走完采购申请 → 到货验收 → 入库 → 部署流程，查看资产生命周期 ✅
+3. **运维管理**：创建故障工单 → 分配工程师 → 更换部件 → 关闭工单，查看维修记录 ✅
+4. **数据导入**：批量导入设备清单（Excel/CSV），预览错误并修正 ✅
+5. **Dashboard**：查看设备总数、资产状态分布、工单趋势 ✅
+
+### 4.2 实际交付清单（Phase 0-5）
+
+**Phase 0: 工程初始化** ✅
+- 前后端脚手架（Python 3.12 + FastAPI + Vue 3 + TypeScript）
+- Docker Compose 环境
+- Alembic 数据库迁移框架
+- 健康检查接口 `/health`
+
+**Phase 1: Infrastructure Core + Object Explorer** ✅
+- 核心对象模型（objects/object_types/relationships/object_specs/object_history）
+- Object CRUD API（13 个端点）
+- Object Explorer 前端（列表/详情/关系图/历史时间线）
+- 基础权限表（users/roles/permissions/organizations）
+
+**Phase 2: 数据接入层** ✅
+- Excel/CSV 批量导入 API（preview + execute）
+- 导入任务记录与错误反馈
+- 导入前端页面（上传/预览/历史）
+
+**Phase 3: Asset Management** ✅
+- 资产全生命周期（采购/验收/入库/部署/调拨/退役）
+- 资产台账页面
+- 采购申请与库存管理
+
+**Phase 4: Operations Management** ✅
+- 工单系统（work_orders/faults/repairs/component_replacements）
+- 工单流转与状态机
+- 工单详情页与时间线
+
+**Phase 5: Dashboard 与 Knowledge** ✅
+- Dashboard 概览（设备/资产/工单统计，支持按组织过滤）
+- 知识库（文章/附件/对象关联）
+- 知识 AI 问答（可配置 LLM，支持 RAG 检索）
+- 全局搜索
+
+**MVP 增强功能** ✅（Phase 0-5 之后）
+- CI/CD：GitHub Actions 流水线 + pytest 测试库隔离
+- 登录认证：JWT + 双通道兼容（dev/prod）
+- RBAC 权限体系：18 个权限点 + 资源范围隔离
+- 多组织隔离：读写隔离 + Dashboard 组织统计
+- 通用工作流引擎：采购审批接入（A1/A2 节点）
+- 站内通知：工单/审批任务通知 + 前端铃铛
+- 数据质量中心：质量规则 + 问题记录 + 质量报告
+- 前端角色化：基于权限点的菜单/按钮显隐
+
+### 4.3 测试基线
+
+- **单元测试 + 集成测试**：65 passed（backend/tests/）
+- **测试覆盖模块**：
+  - Core: objects/relationships/search
+  - Asset: assets/purchases/deployments
+  - Operations: work_orders/faults/repairs
+  - Dashboard: statistics/charts
+  - Workflow: engine/tasks/instances
+  - Notifications: push/read/unread-count
+  - Quality: rules/issues/reports
+  - Scope: organization read/write isolation
+- **CI 自动化**：每次 push 到 main 或 PR 时自动运行 pytest（atlas_test 数据库隔离）
+- **测试数据库**：`atlas_test`（与开发库 `atlas_dev` 隔离，避免污染）
 
 ### 4.2 页面清单
 
