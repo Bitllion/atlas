@@ -50,13 +50,13 @@ def create_object(payload: ObjectCreate, request: Request, db: Session = Depends
     return result
 
 
-@router.get("/objects", tags=["objects"], dependencies=[Depends(require_permission("object.read"))])
-def list_objects(object_type_id: UUID | None = None, object_type: str | None = None, status_filter: str | None = Query(default=None, alias="status"), name: str | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200), db: Session = Depends(get_db)):
+@router.get("/objects", tags=["objects"])
+def list_objects(object_type_id: UUID | None = None, object_type: str | None = None, status_filter: str | None = Query(default=None, alias="status"), name: str | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200), db: Session = Depends(get_db), user: User = Depends(require_permission("object.read"))):
     if object_type and not object_type_id:
         object_type_id = db.scalar(select(ObjectType.id).where(ObjectType.name == object_type, ObjectType.deleted_at.is_(None)))
         if object_type_id is None:
             return {"total": 0, "page": page, "page_size": page_size, "items": []}
-    total, items = service.list_objects(db, object_type_id, status_filter, name, page, page_size)
+    total, items = service.list_objects(db, object_type_id, status_filter, name, page, page_size, user)
     return {"total": total, "page": page, "page_size": page_size, "items": [ObjectOut.model_validate(item) for item in items]}
 
 

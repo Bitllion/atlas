@@ -18,6 +18,7 @@ from app.schemas.assets import (AssetReceive, CompleteTransfer, DeployAsset, Inv
                                 PurchaseRequestCreate, RecoverAsset, RetireAsset,
                                 StockAsset, TransferAsset)
 from app.services.core import _operator
+from app.services.resource_scope import has_global_resource_access, organization_scope
 
 ALLOWED_TRANSITIONS = {
     "REQUESTED": {"APPROVED"}, "APPROVED": {"ORDERED"},
@@ -343,8 +344,10 @@ def asset_out(db: Session, asset: Asset, detail: bool = False) -> dict[str, Any]
     return data
 
 
-def list_assets(db: Session, lifecycle_status: str | None, organization_id: UUID | None, location_id: UUID | None, page: int, page_size: int) -> tuple[int, list[Asset]]:
+def list_assets(db: Session, lifecycle_status: str | None, organization_id: UUID | None, location_id: UUID | None, page: int, page_size: int, user: User) -> tuple[int, list[Asset]]:
     filters = [Asset.deleted_at.is_(None)]
+    if not has_global_resource_access(db, user):
+        filters.append(organization_scope(Asset, user.organization_id))
     if lifecycle_status: filters.append(Asset.lifecycle_status == lifecycle_status)
     if organization_id: filters.append(or_(Asset.owner_org_id == organization_id, Asset.operator_org_id == organization_id, Asset.maintainer_org_id == organization_id))
     query = select(Asset)

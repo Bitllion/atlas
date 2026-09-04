@@ -10,6 +10,9 @@ from app.models import Asset, InfrastructureObject, KnowledgeArticle, ObjectType
 
 router = APIRouter(tags=["dashboard", "search"])
 
+# TODO(resource-scope): dashboard aggregates span objects, assets, and work orders;
+# apply organization scope after cross-domain work-order ownership is defined.
+
 OPEN_STATUSES = ("CREATED", "ASSIGNED", "PROCESSING", "WAITING", "SUSPENDED", "REOPENED")
 
 

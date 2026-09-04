@@ -102,9 +102,9 @@ def list_deployments(asset_id: UUID | None = None, location_id: UUID | None = No
     return {"items": [{field: getattr(item, field) for field in fields} for item in items]}
 
 
-@router.get("/assets", tags=["assets"], dependencies=[Depends(require_permission("asset.read"))])
-def list_assets(lifecycle_status: str | None = Query(default=None, alias="status"), organization_id: UUID | None = None, location_id: UUID | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200), db: Session = Depends(get_db)):
-    total, items = service.list_assets(db, lifecycle_status, organization_id, location_id, page, page_size)
+@router.get("/assets", tags=["assets"])
+def list_assets(lifecycle_status: str | None = Query(default=None, alias="status"), organization_id: UUID | None = None, location_id: UUID | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200), db: Session = Depends(get_db), user: User = Depends(require_permission("asset.read"))):
+    total, items = service.list_assets(db, lifecycle_status, organization_id, location_id, page, page_size, user)
     return {"total": total, "page": page, "page_size": page_size, "items": [service.asset_out(db, item) for item in items]}
 
 
