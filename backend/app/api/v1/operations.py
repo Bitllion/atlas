@@ -2,12 +2,13 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.models import WorkOrder
+from app.core.security import actor_id, get_current_user_optional
+from app.models import User, WorkOrder
 from app.schemas.operations import RepairCreate, ReplacementCreate, WorkOrderAssign, WorkOrderCreate
 from app.services import operations as service
 
@@ -15,47 +16,47 @@ router = APIRouter(tags=["operations"])
 
 
 @router.post("/work-orders", status_code=status.HTTP_201_CREATED)
-def create_work_order(payload: WorkOrderCreate, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
-    return service.model_out(service.create_work_order(db, payload, user), service.WORK_ORDER_FIELDS)
+def create_work_order(payload: WorkOrderCreate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    return service.model_out(service.create_work_order(db, payload, actor_id(user)), service.WORK_ORDER_FIELDS)
 
 
 @router.put("/work-orders/{work_order_id}/assign")
-def assign_work_order(work_order_id: UUID, payload: WorkOrderAssign, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
+def assign_work_order(work_order_id: UUID, payload: WorkOrderAssign, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     assignee = payload.assigned_to or payload.assignee_id
     if assignee is None:
         from app.core.exceptions import ServiceError
         raise ServiceError(422, "AssigneeRequired", "必须提供处理人 ID")
-    item = service.assign(db, service.active_work_order(db, work_order_id), assignee, user)
+    item = service.assign(db, service.active_work_order(db, work_order_id), assignee, actor_id(user))
     return service.model_out(item, service.WORK_ORDER_FIELDS)
 
 
 @router.put("/work-orders/{work_order_id}/start")
-def start_work_order(work_order_id: UUID, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
-    item = service.simple_transition(db, service.active_work_order(db, work_order_id), "PROCESSING", user)
+def start_work_order(work_order_id: UUID, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    item = service.simple_transition(db, service.active_work_order(db, work_order_id), "PROCESSING", actor_id(user))
     return service.model_out(item, service.WORK_ORDER_FIELDS)
 
 
 @router.post("/work-orders/{work_order_id}/repairs", status_code=status.HTTP_201_CREATED)
-def add_repair(work_order_id: UUID, payload: RepairCreate, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
-    record = service.add_repair(db, service.active_work_order(db, work_order_id), payload, user)
+def add_repair(work_order_id: UUID, payload: RepairCreate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    record = service.add_repair(db, service.active_work_order(db, work_order_id), payload, actor_id(user))
     return service.model_out(record, service.REPAIR_FIELDS)
 
 
 @router.post("/work-orders/{work_order_id}/replacements", status_code=status.HTTP_201_CREATED)
-def add_replacement(work_order_id: UUID, payload: ReplacementCreate, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
-    event = service.add_replacement(db, service.active_work_order(db, work_order_id), payload, user)
+def add_replacement(work_order_id: UUID, payload: ReplacementCreate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    event = service.add_replacement(db, service.active_work_order(db, work_order_id), payload, actor_id(user))
     return service.model_out(event, service.REPLACEMENT_FIELDS)
 
 
 @router.put("/work-orders/{work_order_id}/resolve")
-def resolve_work_order(work_order_id: UUID, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
-    item = service.simple_transition(db, service.active_work_order(db, work_order_id), "RESOLVED", user)
+def resolve_work_order(work_order_id: UUID, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    item = service.simple_transition(db, service.active_work_order(db, work_order_id), "RESOLVED", actor_id(user))
     return service.model_out(item, service.WORK_ORDER_FIELDS)
 
 
 @router.put("/work-orders/{work_order_id}/close")
-def close_work_order(work_order_id: UUID, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id")):
-    item = service.simple_transition(db, service.active_work_order(db, work_order_id), "CLOSED", user)
+def close_work_order(work_order_id: UUID, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
+    item = service.simple_transition(db, service.active_work_order(db, work_order_id), "CLOSED", actor_id(user))
     return service.model_out(item, service.WORK_ORDER_FIELDS)
 
 

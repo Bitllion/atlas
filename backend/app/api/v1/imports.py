@@ -2,13 +2,14 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, Header, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ServiceError
+from app.core.security import actor_id, get_current_user_optional
 from app.database.session import get_db
-from app.models import ImportError, ImportJob
+from app.models import ImportError, ImportJob, User
 from app.schemas.imports import ImportJobOut, ImportResult
 from app.services import imports as service
 
@@ -21,17 +22,17 @@ def _result(db: Session, job: ImportJob, dry_run: bool) -> dict:
 
 
 @router.post("/import/preview", response_model=ImportResult, tags=["imports"])
-def preview_import(file: UploadFile = File(...), import_type: str = Form("object"), user: str | None = Header(default=None, alias="X-User-Id"), db: Session = Depends(get_db)):
+def preview_import(file: UploadFile = File(...), import_type: str = Form("object"), user: User | None = Depends(get_current_user_optional), db: Session = Depends(get_db)):
     content = file.file.read()
     if not content:
         raise ServiceError(400, "EmptyImportFile", "导入文件为空")
-    job = service.preview(db, file.filename or "upload", content, import_type, user)
+    job = service.preview(db, file.filename or "upload", content, import_type, actor_id(user))
     return _result(db, job, True)
 
 
 @router.post("/import/{import_id}/execute", response_model=ImportResult, tags=["imports"])
-def execute_import(import_id: UUID, user: str | None = Header(default=None, alias="X-User-Id"), db: Session = Depends(get_db)):
-    job = service.execute(db, import_id, user)
+def execute_import(import_id: UUID, user: User | None = Depends(get_current_user_optional), db: Session = Depends(get_db)):
+    job = service.execute(db, import_id, actor_id(user))
     return _result(db, job, False)
 
 

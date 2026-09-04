@@ -4,13 +4,14 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ServiceError
+from app.core.security import require_current_user
 from app.database.session import get_db
 from app.models import AuditLog, InventoryLocation, Organization, User
 
@@ -46,15 +47,6 @@ class OrganizationUpdate(BaseModel):
     is_active: bool | None = None
 
 
-def _operator(value: str | None) -> UUID | None:
-    if value is None:
-        return None
-    try:
-        return UUID(value)
-    except ValueError as exc:
-        raise ServiceError(400, "InvalidOperator", "X-User-Id 必须是 UUID") from exc
-
-
 def _json_value(value: Any) -> Any:
     if isinstance(value, (UUID, datetime)):
         return str(value)
@@ -64,7 +56,7 @@ def _json_value(value: Any) -> Any:
 def _audit(
     db: Session,
     request: Request,
-    user: str | None,
+    user: User,
     action: str,
     resource_type: str,
     resource_id: UUID,
@@ -73,7 +65,7 @@ def _audit(
 ) -> None:
     db.add(
         AuditLog(
-            user_id=_operator(user),
+            user_id=user.id,
             action=action,
             resource_type=resource_type,
             resource_id=resource_id,
@@ -147,7 +139,7 @@ def create_user(
     payload: UserCreate,
     request: Request,
     db: Session = Depends(get_db),
-    operator: str | None = Header(default=None, alias="X-User-Id"),
+    operator: User = Depends(require_current_user),
 ):
     organization = _organization(db, payload.organization_id)
     if db.scalar(select(User.id).where(User.username == payload.username)) is not None:
@@ -212,7 +204,7 @@ def update_user(
     payload: UserUpdate,
     request: Request,
     db: Session = Depends(get_db),
-    operator: str | None = Header(default=None, alias="X-User-Id"),
+    operator: User = Depends(require_current_user),
 ):
     item = _user(db, user_id)
     before = _snapshot(item)
@@ -241,7 +233,7 @@ def create_organization(
     payload: OrganizationCreate,
     request: Request,
     db: Session = Depends(get_db),
-    operator: str | None = Header(default=None, alias="X-User-Id"),
+    operator: User = Depends(require_current_user),
 ):
     values = payload.model_dump(exclude={"contact"})
     values["contact_email"] = payload.contact_email or payload.contact
@@ -290,7 +282,7 @@ def update_organization(
     payload: OrganizationUpdate,
     request: Request,
     db: Session = Depends(get_db),
-    operator: str | None = Header(default=None, alias="X-User-Id"),
+    operator: User = Depends(require_current_user),
 ):
     item = _organization(db, organization_id)
     before = _snapshot(item)

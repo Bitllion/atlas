@@ -9,7 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.models import ObjectHistory, ObjectRelationship, ObjectType, RelationshipType
+from app.core.security import actor_id, get_current_user_optional
+from app.models import ObjectHistory, ObjectRelationship, ObjectType, RelationshipType, User
 from app.schemas.core import HistoryOut, ObjectCreate, ObjectDetail, ObjectOut, ObjectUpdate, RelationshipCreate, RelationshipOut
 from app.services import core as service
 
@@ -36,15 +37,16 @@ def relationship_out(item: ObjectRelationship) -> dict:
 
 
 @router.post("/objects", response_model=ObjectOut, status_code=status.HTTP_201_CREATED, tags=["objects"])
-def create_object(payload: ObjectCreate, request: Request, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def create_object(payload: ObjectCreate, request: Request, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     body = payload.model_dump(mode="json")
     cached = service.idempotency_lookup(db, idempotency_key, "/api/v1/objects", body)
     if cached:
         return JSONResponse(status_code=cached["status"], content=cached["body"])
     ip, agent = context(request)
-    result = service.create_object(db, payload, user, ip, agent)
+    actor = actor_id(user)
+    result = service.create_object(db, payload, actor, ip, agent)
     response_body = jsonable_encoder(ObjectOut.model_validate(result))
-    service.idempotency_store(db, idempotency_key, "/api/v1/objects", body, 201, response_body, user)
+    service.idempotency_store(db, idempotency_key, "/api/v1/objects", body, 201, response_body, actor)
     return result
 
 
@@ -80,27 +82,29 @@ def expected_version(if_match: str | None, body_version: int | None) -> int:
 
 
 @router.put("/objects/{object_id}", response_model=ObjectOut, tags=["objects"])
-def update_object(object_id: UUID, payload: ObjectUpdate, request: Request, db: Session = Depends(get_db), if_match: str | None = Header(default=None, alias="If-Match"), user: str | None = Header(default=None, alias="X-User-Id"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def update_object(object_id: UUID, payload: ObjectUpdate, request: Request, db: Session = Depends(get_db), if_match: str | None = Header(default=None, alias="If-Match"), user: User | None = Depends(get_current_user_optional), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     body = payload.model_dump(mode="json", exclude_unset=True)
     endpoint = f"/api/v1/objects/{object_id}"
     cached = service.idempotency_lookup(db, idempotency_key, endpoint, body)
     if cached:
         return JSONResponse(status_code=cached["status"], content=cached["body"])
     ip, agent = context(request)
-    result = service.update_object(db, object_id, payload, expected_version(if_match, payload.version), user, ip, agent)
-    service.idempotency_store(db, idempotency_key, endpoint, body, 200, jsonable_encoder(ObjectOut.model_validate(result)), user)
+    actor = actor_id(user)
+    result = service.update_object(db, object_id, payload, expected_version(if_match, payload.version), actor, ip, agent)
+    service.idempotency_store(db, idempotency_key, endpoint, body, 200, jsonable_encoder(ObjectOut.model_validate(result)), actor)
     return result
 
 
 @router.delete("/objects/{object_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["objects"])
-def delete_object(object_id: UUID, request: Request, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> Response:
+def delete_object(object_id: UUID, request: Request, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> Response:
     endpoint = f"/api/v1/objects/{object_id}"
     cached = service.idempotency_lookup(db, idempotency_key, endpoint, {})
     if cached:
         return Response(status_code=cached["status"])
     ip, agent = context(request)
-    service.delete_object(db, object_id, user, ip, agent)
-    service.idempotency_store(db, idempotency_key, endpoint, {}, 204, None, user)
+    actor = actor_id(user)
+    service.delete_object(db, object_id, actor, ip, agent)
+    service.idempotency_store(db, idempotency_key, endpoint, {}, 204, None, actor)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -112,14 +116,15 @@ def object_history(object_id: UUID, db: Session = Depends(get_db)):
 
 
 @router.post("/relationships", response_model=RelationshipOut, status_code=status.HTTP_201_CREATED, tags=["relationships"])
-def create_relationship(payload: RelationshipCreate, request: Request, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
+def create_relationship(payload: RelationshipCreate, request: Request, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")):
     body = payload.model_dump(mode="json")
     cached = service.idempotency_lookup(db, idempotency_key, "/api/v1/relationships", body)
     if cached:
         return JSONResponse(status_code=cached["status"], content=cached["body"])
     ip, agent = context(request)
-    result = relationship_out(service.create_relationship(db, payload, user, ip, agent))
-    service.idempotency_store(db, idempotency_key, "/api/v1/relationships", body, 201, jsonable_encoder(result), user)
+    actor = actor_id(user)
+    result = relationship_out(service.create_relationship(db, payload, actor, ip, agent))
+    service.idempotency_store(db, idempotency_key, "/api/v1/relationships", body, 201, jsonable_encoder(result), actor)
     return result
 
 
@@ -141,14 +146,15 @@ def list_relationships(source_id: UUID | None = None, target_id: UUID | None = N
 
 
 @router.delete("/relationships/{relationship_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["relationships"])
-def delete_relationship(relationship_id: UUID, request: Request, db: Session = Depends(get_db), user: str | None = Header(default=None, alias="X-User-Id"), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> Response:
+def delete_relationship(relationship_id: UUID, request: Request, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional), idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> Response:
     endpoint = f"/api/v1/relationships/{relationship_id}"
     cached = service.idempotency_lookup(db, idempotency_key, endpoint, {})
     if cached:
         return Response(status_code=cached["status"])
     ip, agent = context(request)
-    service.delete_relationship(db, relationship_id, user, ip, agent)
-    service.idempotency_store(db, idempotency_key, endpoint, {}, 204, None, user)
+    actor = actor_id(user)
+    service.delete_relationship(db, relationship_id, actor, ip, agent)
+    service.idempotency_store(db, idempotency_key, endpoint, {}, 204, None, actor)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
