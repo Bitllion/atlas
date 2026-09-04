@@ -1,6 +1,7 @@
 """Password hashing, JWT handling, and request authentication dependencies."""
 
 from datetime import datetime, timedelta, timezone
+from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
@@ -16,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.config.settings import settings
 from app.core.exceptions import ServiceError
 from app.database.session import get_db
-from app.models import User
+from app.models import Permission, RolePermission, User, UserRole
 
 
 password_hasher = PasswordHash((BcryptHasher(),))
@@ -104,10 +105,37 @@ def get_current_user_optional(
 
 
 def require_current_user(user: User | None = Depends(get_current_user_optional)) -> User:
-    # TODO(auth-rbac): add permission + resource scope + management scope checks here.
     if user is None:
         raise _unauthorized("需要认证")
     return user
+
+
+def require_permission(code: str) -> Callable[..., User]:
+    """Build a dependency that requires an active role permission for the user."""
+
+    def permission_dependency(
+        user: User = Depends(require_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        # The current schema stores the permission code in Permission.name.
+        allowed = db.scalar(
+            select(Permission.id)
+            .join(RolePermission, RolePermission.permission_id == Permission.id)
+            .join(UserRole, UserRole.role_id == RolePermission.role_id)
+            .where(
+                UserRole.user_id == user.id,
+                UserRole.deleted_at.is_(None),
+                RolePermission.deleted_at.is_(None),
+                Permission.deleted_at.is_(None),
+                Permission.name == code,
+            )
+            .limit(1)
+        )
+        if allowed is None:
+            raise ServiceError(403, "Forbidden", f"缺少权限：{code}")
+        return user
+
+    return permission_dependency
 
 
 def actor_id(user: User | None) -> str | None:

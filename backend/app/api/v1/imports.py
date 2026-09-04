@@ -7,13 +7,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ServiceError
-from app.core.security import actor_id, get_current_user_optional, require_current_user
+from app.core.security import actor_id, get_current_user_optional, require_permission
 from app.database.session import get_db
 from app.models import ImportError, ImportJob, User
 from app.schemas.imports import ImportJobOut, ImportResult
 from app.services import imports as service
 
-router = APIRouter(dependencies=[Depends(require_current_user)])
+router = APIRouter(dependencies=[Depends(require_permission("import.execute"))])
 
 
 def _result(db: Session, job: ImportJob, dry_run: bool) -> dict:

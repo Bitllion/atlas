@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from app.database.session import SessionLocal
-from app.models import InventoryRecord, ObjectHistory, Organization, User
+from app.models import InventoryRecord, ObjectHistory, Organization, Role, User, UserRole
 
 
 @pytest.fixture(scope="module")
@@ -20,6 +20,9 @@ def lifecycle_context():
         user = User(username=f"lifecycle-{marker}", email=f"lifecycle-{marker}@example.test",
                     password_hash="test", organization_id=source.id)
         db.add(user)
+        db.flush()
+        admin_role = db.query(Role).filter(Role.name == "admin").one()
+        db.add(UserRole(user_id=user.id, role_id=admin_role.id, granted_by=user.id))
         db.commit()
         return {"headers": {"X-User-Id": str(user.id)}, "target_org_id": str(target.id)}
 

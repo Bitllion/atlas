@@ -11,11 +11,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ServiceError
-from app.core.security import require_current_user
+from app.core.security import require_current_user, require_permission
 from app.database.session import get_db
 from app.models import AuditLog, InventoryLocation, Organization, User
 
-router = APIRouter(tags=["admin"])
+router = APIRouter(tags=["admin"], dependencies=[Depends(require_permission("admin.manage"))])
 
 
 class UserCreate(BaseModel):
@@ -169,7 +169,6 @@ def list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     db: Session = Depends(get_db),
-    _authenticated_user: User = Depends(require_current_user),
 ):
     filters = [User.deleted_at.is_(None)]
     if search:
@@ -196,7 +195,6 @@ def list_users(
 def get_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    _authenticated_user: User = Depends(require_current_user),
 ):
     item = _user(db, user_id)
     organization_name = db.scalar(select(Organization.name).where(Organization.id == item.organization_id))
@@ -261,7 +259,6 @@ def list_organizations(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     db: Session = Depends(get_db),
-    _authenticated_user: User = Depends(require_current_user),
 ):
     filters = [Organization.deleted_at.is_(None)]
     if search:
@@ -281,7 +278,6 @@ def list_organizations(
 def get_organization(
     organization_id: UUID,
     db: Session = Depends(get_db),
-    _authenticated_user: User = Depends(require_current_user),
 ):
     return _organization_out(_organization(db, organization_id))
 
@@ -315,7 +311,6 @@ def list_inventory_locations(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     db: Session = Depends(get_db),
-    _authenticated_user: User = Depends(require_current_user),
 ):
     active = InventoryLocation.deleted_at.is_(None)
     total = db.scalar(select(func.count()).select_from(InventoryLocation).where(active)) or 0

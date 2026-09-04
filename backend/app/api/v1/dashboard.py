@@ -5,12 +5,13 @@ from sqlalchemy import func, literal, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.core.security import require_current_user
+from app.core.security import require_permission
 from app.models import Asset, InfrastructureObject, KnowledgeArticle, ObjectType, Organization, WorkOrder
 
-router = APIRouter(
-    tags=["dashboard", "search"], dependencies=[Depends(require_current_user)]
-)
+router = APIRouter(tags=["dashboard", "search"])
+
+# TODO(resource-scope): dashboard aggregates span objects, assets, and work orders;
+# apply organization scope after cross-domain work-order ownership is defined.
 
 OPEN_STATUSES = ("CREATED", "ASSIGNED", "PROCESSING", "WAITING", "SUSPENDED", "REOPENED")
 
@@ -36,7 +37,7 @@ def _operations_summary(db: Session) -> dict:
     }
 
 
-@router.get("/dashboard/overview")
+@router.get("/dashboard/overview", dependencies=[Depends(require_permission("dashboard.read"))])
 def dashboard_overview(db: Session = Depends(get_db)):
     object_distribution = _distribution(
         db,
@@ -53,7 +54,7 @@ def dashboard_overview(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/dashboard/assets")
+@router.get("/dashboard/assets", dependencies=[Depends(require_permission("dashboard.read"))])
 def dashboard_assets(db: Session = Depends(get_db)):
     active = Asset.deleted_at.is_(None)
     by_status = _distribution(db, select(Asset.lifecycle_status, func.count()).where(active).group_by(Asset.lifecycle_status).order_by(Asset.lifecycle_status), "status")
@@ -70,7 +71,7 @@ def dashboard_assets(db: Session = Depends(get_db)):
     return {"total": sum(item["count"] for item in by_status), "by_status": by_status, "by_type": by_type, "by_organization": by_org}
 
 
-@router.get("/dashboard/operations")
+@router.get("/dashboard/operations", dependencies=[Depends(require_permission("dashboard.read"))])
 def dashboard_operations(db: Session = Depends(get_db)):
     active = WorkOrder.deleted_at.is_(None)
     result = _operations_summary(db)
@@ -79,7 +80,7 @@ def dashboard_operations(db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/search")
+@router.get("/search", dependencies=[Depends(require_permission("search.read"))])
 def global_search(q: str = Query(min_length=1), page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200), db: Session = Depends(get_db)):
     pattern = f"%{q}%"
     objects = select(

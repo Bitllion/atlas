@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.core.security import actor_id, get_current_user_optional, require_current_user
+from app.core.security import actor_id, get_current_user_optional, require_permission
 from app.models import Asset, Deployment, PurchaseRequest, User
 from app.schemas.assets import (AssetReceive, CompleteTransfer, DeployAsset, InventoryLocationCreate,
                                 PurchaseDecision, PurchaseRejection,
@@ -16,35 +16,35 @@ from app.schemas.assets import (AssetReceive, CompleteTransfer, DeployAsset, Inv
                                 TransferAsset)
 from app.services import assets as service
 
-router = APIRouter(dependencies=[Depends(require_current_user)])
+router = APIRouter()
 
 
-@router.post("/purchase-requests", status_code=status.HTTP_201_CREATED, tags=["assets"])
+@router.post("/purchase-requests", status_code=status.HTTP_201_CREATED, tags=["assets"], dependencies=[Depends(require_permission("purchase.write"))])
 def create_purchase_request(payload: PurchaseRequestCreate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.purchase_out(service.create_purchase(db, payload, actor_id(user)))
 
 
-@router.get("/purchase-requests", tags=["assets"])
+@router.get("/purchase-requests", tags=["assets"], dependencies=[Depends(require_permission("purchase.read"))])
 def list_purchase_requests(db: Session = Depends(get_db)):
     return {"items": [service.purchase_out(item) for item in db.scalars(select(PurchaseRequest).order_by(PurchaseRequest.created_at.desc()))]}
 
 
-@router.post("/purchase-requests/{request_id}/approve", tags=["assets"])
+@router.post("/purchase-requests/{request_id}/approve", tags=["assets"], dependencies=[Depends(require_permission("purchase.approve"))])
 def approve_purchase_request(request_id: UUID, payload: PurchaseDecision, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.purchase_out(service.decide_purchase(db, request_id, payload, True, actor_id(user)))
 
 
-@router.post("/purchase-requests/{request_id}/reject", tags=["assets"])
+@router.post("/purchase-requests/{request_id}/reject", tags=["assets"], dependencies=[Depends(require_permission("purchase.approve"))])
 def reject_purchase_request(request_id: UUID, payload: PurchaseRejection, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.purchase_out(service.decide_purchase(db, request_id, payload, False, actor_id(user)))
 
 
-@router.post("/inventory-locations", status_code=status.HTTP_201_CREATED, tags=["assets"])
+@router.post("/inventory-locations", status_code=status.HTTP_201_CREATED, tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def create_inventory_location(payload: InventoryLocationCreate, db: Session = Depends(get_db)):
     return service.create_inventory_location(db, payload)
 
 
-@router.post("/assets", status_code=status.HTTP_201_CREATED, tags=["assets"])
+@router.post("/assets", status_code=status.HTTP_201_CREATED, tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def receive_assets(payload: AssetReceive | list[AssetReceive] = Body(...), db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     many = isinstance(payload, list)
     items = payload if many else [payload]
@@ -52,47 +52,47 @@ def receive_assets(payload: AssetReceive | list[AssetReceive] = Body(...), db: S
     return result if many else result[0]
 
 
-@router.put("/assets/{asset_id}/stock", tags=["assets"])
+@router.put("/assets/{asset_id}/stock", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def stock_asset(asset_id: UUID, payload: StockAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.asset_out(db, service.stock_asset(db, asset_id, payload, actor_id(user)))
 
 
-@router.post("/inventory/receive", tags=["assets"])
+@router.post("/inventory/receive", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def receive_into_inventory(payload: InventoryReceive, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.asset_out(db, service.stock_asset(db, payload.asset_id, StockAsset(**payload.model_dump(exclude={"asset_id"})), actor_id(user)))
 
 
-@router.put("/assets/{asset_id}/deploy", tags=["assets"])
+@router.put("/assets/{asset_id}/deploy", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def deploy_asset(asset_id: UUID, payload: DeployAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.asset_out(db, service.deploy_asset(db, asset_id, payload, actor_id(user)))
 
 
-@router.put("/assets/{asset_id}/transfer", tags=["assets"])
+@router.put("/assets/{asset_id}/transfer", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def transfer_asset(asset_id: UUID, payload: TransferAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.asset_out(db, service.transfer_asset(db, asset_id, payload, actor_id(user)))
 
 
-@router.put("/assets/{asset_id}/complete-transfer", tags=["assets"])
+@router.put("/assets/{asset_id}/complete-transfer", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def complete_transfer(asset_id: UUID, payload: CompleteTransfer, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.asset_out(db, service.complete_transfer(db, asset_id, payload, actor_id(user)))
 
 
-@router.put("/assets/{asset_id}/retire", tags=["assets"])
+@router.put("/assets/{asset_id}/retire", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def retire_asset(asset_id: UUID, payload: RetireAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.asset_out(db, service.retire_asset(db, asset_id, payload, actor_id(user)))
 
 
-@router.put("/assets/{asset_id}/recover", tags=["assets"])
+@router.put("/assets/{asset_id}/recover", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def recover_asset(asset_id: UUID, payload: RecoverAsset, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.asset_out(db, service.recover_asset(db, asset_id, payload, actor_id(user)))
 
 
-@router.post("/deployments", tags=["assets"])
+@router.post("/deployments", tags=["assets"], dependencies=[Depends(require_permission("asset.write"))])
 def create_deployment(payload: DeploymentCreate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.asset_out(db, service.deploy_asset(db, payload.asset_id, DeployAsset(**payload.model_dump(exclude={"asset_id"})), actor_id(user)))
 
 
-@router.get("/deployments", tags=["assets"])
+@router.get("/deployments", tags=["assets"], dependencies=[Depends(require_permission("asset.read"))])
 def list_deployments(asset_id: UUID | None = None, location_id: UUID | None = None, db: Session = Depends(get_db)):
     query = select(Deployment)
     if asset_id: query = query.where(Deployment.asset_id == asset_id)
@@ -103,12 +103,12 @@ def list_deployments(asset_id: UUID | None = None, location_id: UUID | None = No
 
 
 @router.get("/assets", tags=["assets"])
-def list_assets(lifecycle_status: str | None = Query(default=None, alias="status"), organization_id: UUID | None = None, location_id: UUID | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200), db: Session = Depends(get_db)):
-    total, items = service.list_assets(db, lifecycle_status, organization_id, location_id, page, page_size)
+def list_assets(lifecycle_status: str | None = Query(default=None, alias="status"), organization_id: UUID | None = None, location_id: UUID | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200), db: Session = Depends(get_db), user: User = Depends(require_permission("asset.read"))):
+    total, items = service.list_assets(db, lifecycle_status, organization_id, location_id, page, page_size, user)
     return {"total": total, "page": page, "page_size": page_size, "items": [service.asset_out(db, item) for item in items]}
 
 
-@router.get("/assets/{asset_id}", tags=["assets"])
+@router.get("/assets/{asset_id}", tags=["assets"], dependencies=[Depends(require_permission("asset.read"))])
 def get_asset(asset_id: UUID, db: Session = Depends(get_db)):
     asset = db.scalar(select(Asset).where(Asset.id == asset_id, Asset.deleted_at.is_(None)))
     if asset is None:
@@ -117,6 +117,6 @@ def get_asset(asset_id: UUID, db: Session = Depends(get_db)):
     return service.asset_out(db, asset, detail=True)
 
 
-@router.get("/assets/{asset_id}/lifecycle", tags=["assets"])
+@router.get("/assets/{asset_id}/lifecycle", tags=["assets"], dependencies=[Depends(require_permission("asset.read"))])
 def get_asset_lifecycle(asset_id: UUID, db: Session = Depends(get_db)):
     return {"asset_id": asset_id, "items": service.lifecycle(db, asset_id)}

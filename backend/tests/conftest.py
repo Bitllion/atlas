@@ -37,8 +37,9 @@ os.environ["DATABASE_URL"] = TEST_DATABASE_URL.render_as_string(hide_password=Fa
 
 from app.database.session import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import ObjectType, Organization, RelationshipType, User  # noqa: E402
+from app.models import ObjectType, Organization, RelationshipType, Role, User, UserRole  # noqa: E402
 from scripts.seed_init_data import seed_initial_data  # noqa: E402
+from scripts.seed_permissions import seed_permissions  # noqa: E402
 
 
 def _drop_database(connection, database_name: str) -> None:
@@ -73,19 +74,24 @@ def test_database() -> Iterator[None]:
     )
     command.upgrade(alembic_config, "head")
     seed_initial_data(engine)
+    seed_permissions()
+    seed_permissions()  # The RBAC catalog must remain safe to seed repeatedly.
     with SessionLocal.begin() as session:
         organization = Organization(name="Atlas Test Organization", org_type="INTERNAL")
         session.add(organization)
         session.flush()
-        session.add(
-            User(
+        user = User(
                 id=UUID("7c17910d-850b-4a4b-bf93-e556984edab3"),
                 username="atlas-test-user",
                 email="atlas-test@example.test",
                 password_hash="test-only",
                 organization_id=organization.id,
             )
-        )
+        session.add(user)
+        session.flush()
+        admin_role = session.scalar(select(Role).where(Role.name == "admin"))
+        assert admin_role is not None
+        session.add(UserRole(user_id=user.id, role_id=admin_role.id, granted_by=user.id))
 
     try:
         yield

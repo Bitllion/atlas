@@ -7,20 +7,20 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.core.security import actor_id, get_current_user_optional, require_current_user
+from app.core.security import actor_id, get_current_user_optional, require_permission
 from app.models import User, WorkOrder
 from app.schemas.operations import RepairCreate, ReplacementCreate, WorkOrderAssign, WorkOrderCreate
 from app.services import operations as service
 
-router = APIRouter(tags=["operations"], dependencies=[Depends(require_current_user)])
+router = APIRouter(tags=["operations"])
 
 
-@router.post("/work-orders", status_code=status.HTTP_201_CREATED)
+@router.post("/work-orders", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("workorder.write"))])
 def create_work_order(payload: WorkOrderCreate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     return service.model_out(service.create_work_order(db, payload, actor_id(user)), service.WORK_ORDER_FIELDS)
 
 
-@router.put("/work-orders/{work_order_id}/assign")
+@router.put("/work-orders/{work_order_id}/assign", dependencies=[Depends(require_permission("workorder.write"))])
 def assign_work_order(work_order_id: UUID, payload: WorkOrderAssign, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     assignee = payload.assigned_to or payload.assignee_id
     if assignee is None:
@@ -30,31 +30,31 @@ def assign_work_order(work_order_id: UUID, payload: WorkOrderAssign, db: Session
     return service.model_out(item, service.WORK_ORDER_FIELDS)
 
 
-@router.put("/work-orders/{work_order_id}/start")
+@router.put("/work-orders/{work_order_id}/start", dependencies=[Depends(require_permission("workorder.write"))])
 def start_work_order(work_order_id: UUID, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     item = service.simple_transition(db, service.active_work_order(db, work_order_id), "PROCESSING", actor_id(user))
     return service.model_out(item, service.WORK_ORDER_FIELDS)
 
 
-@router.post("/work-orders/{work_order_id}/repairs", status_code=status.HTTP_201_CREATED)
+@router.post("/work-orders/{work_order_id}/repairs", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("workorder.write"))])
 def add_repair(work_order_id: UUID, payload: RepairCreate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     record = service.add_repair(db, service.active_work_order(db, work_order_id), payload, actor_id(user))
     return service.model_out(record, service.REPAIR_FIELDS)
 
 
-@router.post("/work-orders/{work_order_id}/replacements", status_code=status.HTTP_201_CREATED)
+@router.post("/work-orders/{work_order_id}/replacements", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("workorder.write"))])
 def add_replacement(work_order_id: UUID, payload: ReplacementCreate, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     event = service.add_replacement(db, service.active_work_order(db, work_order_id), payload, actor_id(user))
     return service.model_out(event, service.REPLACEMENT_FIELDS)
 
 
-@router.put("/work-orders/{work_order_id}/resolve")
+@router.put("/work-orders/{work_order_id}/resolve", dependencies=[Depends(require_permission("workorder.write"))])
 def resolve_work_order(work_order_id: UUID, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     item = service.simple_transition(db, service.active_work_order(db, work_order_id), "RESOLVED", actor_id(user))
     return service.model_out(item, service.WORK_ORDER_FIELDS)
 
 
-@router.put("/work-orders/{work_order_id}/close")
+@router.put("/work-orders/{work_order_id}/close", dependencies=[Depends(require_permission("workorder.write"))])
 def close_work_order(work_order_id: UUID, db: Session = Depends(get_db), user: User | None = Depends(get_current_user_optional)):
     item = service.simple_transition(db, service.active_work_order(db, work_order_id), "CLOSED", actor_id(user))
     return service.model_out(item, service.WORK_ORDER_FIELDS)
@@ -70,23 +70,23 @@ def _list(db: Session, work_order_status: str | None, work_order_type: str | Non
     return {"total": total, "page": page, "page_size": page_size, "items": [service.model_out(item, service.WORK_ORDER_FIELDS) for item in items]}
 
 
-@router.get("/work-orders")
+@router.get("/work-orders", dependencies=[Depends(require_permission("workorder.read"))])
 def list_work_orders(work_order_status: str | None = Query(default=None, alias="status"), work_order_type: str | None = Query(default=None, alias="type"), object_id: UUID | None = None, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200), db: Session = Depends(get_db)):
     return _list(db, work_order_status, work_order_type, object_id, page, page_size)
 
 
-@router.get("/work-orders/{work_order_id}")
+@router.get("/work-orders/{work_order_id}", dependencies=[Depends(require_permission("workorder.read"))])
 def get_work_order(work_order_id: UUID, db: Session = Depends(get_db)):
     return service.detail(db, service.active_work_order(db, work_order_id))
 
 
-@router.get("/work-orders/{work_order_id}/timeline")
+@router.get("/work-orders/{work_order_id}/timeline", dependencies=[Depends(require_permission("workorder.read"))])
 def get_work_order_timeline(work_order_id: UUID, db: Session = Depends(get_db)):
     item = service.active_work_order(db, work_order_id)
     return {"work_order_id": item.id, "items": service.timeline(db, item)}
 
 
-@router.get("/objects/{object_id}/work-orders")
+@router.get("/objects/{object_id}/work-orders", dependencies=[Depends(require_permission("workorder.read"))])
 def get_object_work_orders(object_id: UUID, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=200), db: Session = Depends(get_db)):
     service.require_object(db, object_id)
     return _list(db, None, None, object_id, page, page_size)

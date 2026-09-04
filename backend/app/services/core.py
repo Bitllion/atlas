@@ -10,8 +10,9 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ServiceError
-from app.models import AuditLog, IdempotencyKey, InfrastructureObject, ObjectHistory, ObjectRelationship, ObjectSpec, ObjectType, RelationshipType
+from app.models import AuditLog, IdempotencyKey, InfrastructureObject, ObjectHistory, ObjectRelationship, ObjectSpec, ObjectType, RelationshipType, User
 from app.schemas.core import ObjectCreate, ObjectUpdate, RelationshipCreate
+from app.services.resource_scope import has_global_resource_access, organization_scope
 
 
 OBJECT_FIELDS = (
@@ -72,8 +73,10 @@ def create_object(db: Session, payload: ObjectCreate, user: str | None, ip: str 
     return obj
 
 
-def list_objects(db: Session, object_type_id: UUID | None, status: str | None, name: str | None, page: int, page_size: int) -> tuple[int, list[InfrastructureObject]]:
+def list_objects(db: Session, object_type_id: UUID | None, status: str | None, name: str | None, page: int, page_size: int, user: User) -> tuple[int, list[InfrastructureObject]]:
     filters = [InfrastructureObject.deleted_at.is_(None)]
+    if not has_global_resource_access(db, user):
+        filters.append(organization_scope(InfrastructureObject, user.organization_id))
     if object_type_id:
         filters.append(InfrastructureObject.object_type_id == object_type_id)
     if status:
