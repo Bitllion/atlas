@@ -34,6 +34,15 @@ export interface ObjectHistory {
 export interface Page<T> { total: number; page: number; page_size: number; items: T[] }
 export interface Items<T> { items: T[] }
 export interface ApiErrorBody { error?: string; code?: string; message?: string; detail?: string | Array<{ msg?: string }> }
+export type OrganizationType = 'INTERNAL' | 'CUSTOMER' | 'VENDOR'
+export interface Organization {
+  id: string; name: string; org_type: OrganizationType; contact: string | null; contact_email: string | null
+  contact_phone: string | null; address: string | null; is_active: boolean; created_at: string; updated_at: string
+}
+export interface User {
+  id: string; username: string; full_name: string | null; email: string; organization_id: string
+  organization_name: string | null; is_active: boolean; last_login_at: string | null; created_at: string; updated_at: string
+}
 
 export type AssetLifecycleStatus = 'REQUESTED' | 'APPROVED' | 'ORDERED' | 'PURCHASED' | 'RECEIVED' | 'STOCK' | 'IN_TRANSIT' | 'DEPLOYING' | 'DEPLOYED' | 'ACTIVE' | 'MAINTENANCE' | 'TRANSFERRED' | 'RETIRED' | 'RECOVERED'
 export interface AssetObjectSummary {

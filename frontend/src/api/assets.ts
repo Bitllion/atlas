@@ -14,4 +14,5 @@ export const assetApi = {
   approvePurchase: (id: string, userId: string) => apiClient.post<PurchaseRequest>(`/purchase-requests/${id}/approve`, { approved_by: userId }),
   rejectPurchase: (id: string, userId: string, reason: string) => apiClient.post<PurchaseRequest>(`/purchase-requests/${id}/reject`, { rejected_by: userId, rejection_reason: reason }),
   createLocation: (payload: InventoryLocationPayload) => apiClient.post<InventoryLocation>('/inventory-locations', payload),
+  locations: () => apiClient.get<Page<InventoryLocation>>('/inventory-locations', { params: { page: 1, page_size: 200 } }),
 }

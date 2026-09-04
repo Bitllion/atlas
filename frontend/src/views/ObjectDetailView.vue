@@ -2,13 +2,15 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { objectApi } from '../api/objects'
+import { loadCatalogs, useCatalog } from '../stores/catalog'
 import type { InfrastructureObject, ObjectDetail, ObjectHistory, Relationship, RelationshipType } from '../types'
 
 const route = useRoute(); const id = route.params.id as string
 const object = ref<ObjectDetail>(); const histories = ref<ObjectHistory[]>([]); const relations = ref<Relationship[]>([])
 const objectNames = ref<Record<string, string>>({}); const relationTypes = ref<Record<string, RelationshipType>>({}); const activeTab = ref('basic'); const loading = ref(true)
+const { organizationMap, locationMap } = useCatalog()
 const info = computed(() => object.value ? [
-  ['名称', object.value.name], ['对象类型', object.value.object_type.display_name || object.value.object_type.name], ['状态', object.value.status], ['制造商', object.value.manufacturer], ['型号', object.value.model], ['序列号', object.value.serial_number], ['资产编号', object.value.asset_number], ['固件版本', object.value.firmware_version], ['所有权', object.value.ownership], ['管理范围', object.value.management_scope], ['所有者组织', object.value.owner_org_id], ['部署位置', object.value.deployed_location_id], ['更新时间', new Date(object.value.updated_at).toLocaleString('zh-CN')]
+  ['名称', object.value.name], ['对象类型', object.value.object_type.display_name || object.value.object_type.name], ['状态', object.value.status], ['制造商', object.value.manufacturer], ['型号', object.value.model], ['序列号', object.value.serial_number], ['资产编号', object.value.asset_number], ['固件版本', object.value.firmware_version], ['所有权', object.value.ownership], ['管理范围', object.value.management_scope], ['所有者组织', organizationMap.value[object.value.owner_org_id || '']], ['部署位置', locationMap.value[object.value.deployed_location_id || '']], ['更新时间', new Date(object.value.updated_at).toLocaleString('zh-CN')]
 ] : [])
 function display(value: unknown) { if (value == null || value === '') return '—'; return typeof value === 'object' ? JSON.stringify(value) : String(value) }
 function changedFields(item: ObjectHistory) {
@@ -19,7 +21,7 @@ function relationLabel(item: Relationship) { return relationTypes.value[item.rel
 function objectName(objectId: string) { return objectId === id ? object.value?.name || objectId : objectNames.value[objectId] || objectId }
 onMounted(async () => {
   try {
-    const [detail, history, outgoing, incoming, typeResponse, allObjects] = await Promise.all([objectApi.get(id), objectApi.history(id), objectApi.relations({ source_object_id: id }), objectApi.relations({ target_object_id: id }), objectApi.relationshipTypes(), objectApi.list({ page: 1, page_size: 200 })])
+    const [detail, history, outgoing, incoming, typeResponse, allObjects] = await Promise.all([objectApi.get(id), objectApi.history(id), objectApi.relations({ source_object_id: id }), objectApi.relations({ target_object_id: id }), objectApi.relationshipTypes(), objectApi.list({ page: 1, page_size: 200 }), loadCatalogs()])
     object.value = detail.data; histories.value = history.data.items
     relations.value = [...outgoing.data.items, ...incoming.data.items.filter((item) => !outgoing.data.items.some((other) => other.id === item.id))]
     relationTypes.value = Object.fromEntries(typeResponse.data.items.map((item) => [item.id, item])); objectNames.value = Object.fromEntries(allObjects.data.items.map((item: InfrastructureObject) => [item.id, item.name]))

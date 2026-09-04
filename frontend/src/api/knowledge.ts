@@ -9,4 +9,5 @@ export const knowledgeApi = {
   upload: (id: string, file: File) => { const data = new FormData(); data.append('file', file); return apiClient.post(`/knowledge/articles/${id}/attachments`, data, { headers: { 'Content-Type': 'multipart/form-data' } }) },
   linkObjects: (id: string, objects: string[], relationReason?: string) => apiClient.post<Items<ArticleLink>>(`/knowledge/articles/${id}/link-objects`, { objects, relation_reason: relationReason || null }),
   objects: () => apiClient.get<Page<InfrastructureObject>>('/objects', { params: { page: 1, page_size: 100 } }),
+  downloadAttachment: (articleId: string, attachmentId: string) => apiClient.get<Blob>(`/knowledge/articles/${articleId}/attachments/${attachmentId}/download`, { responseType: 'blob' }),
 }
