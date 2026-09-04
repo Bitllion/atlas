@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 from app.core.exceptions import ServiceError
 from app.models import AuditLog, IdempotencyKey, InfrastructureObject, ObjectHistory, ObjectRelationship, ObjectSpec, ObjectType, RelationshipType, User
 from app.schemas.core import ObjectCreate, ObjectUpdate, RelationshipCreate
-from app.services.resource_scope import has_global_resource_access, organization_scope
+from app.services.resource_scope import (creation_organizations, has_global_resource_access,
+                                         organization_scope, require_organization_write_access)
 
 
 OBJECT_FIELDS = (
@@ -55,11 +56,14 @@ def _audit(db: Session, action: str, resource_type: str, resource_id: UUID, befo
     db.add(AuditLog(user_id=operator, action=action, resource_type=resource_type, resource_id=resource_id, before_data=before, after_data=after, ip_address=ip, user_agent=agent))
 
 
-def create_object(db: Session, payload: ObjectCreate, user: str | None, ip: str | None, agent: str | None) -> InfrastructureObject:
-    operator = _operator(user)
+def create_object(db: Session, payload: ObjectCreate, user: User, ip: str | None, agent: str | None) -> InfrastructureObject:
+    operator = user.id
     if db.scalar(select(ObjectType.id).where(ObjectType.id == payload.object_type_id, ObjectType.deleted_at.is_(None))) is None:
         raise ServiceError(400, "InvalidObjectType", "对象类型不存在")
     values = payload.model_dump(exclude={"spec_data"})
+    values["owner_org_id"], values["operator_org_id"] = creation_organizations(
+        db, user, payload.owner_org_id, payload.operator_org_id
+    )
     obj = InfrastructureObject(**values, created_by=operator, updated_by=operator)
     db.add(obj)
     db.flush()
@@ -122,9 +126,10 @@ def idempotency_store(db: Session, key: str | None, endpoint: str, body: dict, s
     db.commit()
 
 
-def update_object(db: Session, object_id: UUID, payload: ObjectUpdate, expected: int, user: str | None, ip: str | None, agent: str | None) -> InfrastructureObject:
-    operator = _operator(user)
+def update_object(db: Session, object_id: UUID, payload: ObjectUpdate, expected: int, user: User, ip: str | None, agent: str | None) -> InfrastructureObject:
+    operator = user.id
     obj = _active_object(db, object_id)
+    require_organization_write_access(db, user, obj)
     spec = db.scalar(select(ObjectSpec).where(ObjectSpec.object_id == obj.id, ObjectSpec.deleted_at.is_(None)))
     before = _snapshot(obj, spec.spec_data if spec else {})
     values = payload.model_dump(exclude_unset=True, exclude={"version", "spec_data"})
@@ -155,9 +160,10 @@ def update_object(db: Session, object_id: UUID, payload: ObjectUpdate, expected:
     return obj
 
 
-def delete_object(db: Session, object_id: UUID, user: str | None, ip: str | None, agent: str | None) -> None:
-    operator = _operator(user)
+def delete_object(db: Session, object_id: UUID, user: User, ip: str | None, agent: str | None) -> None:
+    operator = user.id
     obj = _active_object(db, object_id)
+    require_organization_write_access(db, user, obj)
     spec = db.scalar(select(ObjectSpec).where(ObjectSpec.object_id == obj.id, ObjectSpec.deleted_at.is_(None)))
     before = _snapshot(obj, spec.spec_data if spec else {})
     obj.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -170,10 +176,12 @@ def delete_object(db: Session, object_id: UUID, user: str | None, ip: str | None
     db.commit()
 
 
-def create_relationship(db: Session, payload: RelationshipCreate, user: str | None, ip: str | None, agent: str | None) -> ObjectRelationship:
-    operator = _operator(user)
+def create_relationship(db: Session, payload: RelationshipCreate, user: User, ip: str | None, agent: str | None) -> ObjectRelationship:
+    operator = user.id
     source = _active_object(db, payload.source_object_id)
     target = _active_object(db, payload.target_object_id)
+    require_organization_write_access(db, user, source)
+    require_organization_write_access(db, user, target)
     relation_type = db.scalar(select(RelationshipType).where(RelationshipType.id == payload.relationship_type_id, RelationshipType.deleted_at.is_(None)))
     if relation_type is None:
         raise ServiceError(400, "InvalidRelationshipType", "关系类型不存在")
@@ -198,11 +206,13 @@ def create_relationship(db: Session, payload: RelationshipCreate, user: str | No
     return relation
 
 
-def delete_relationship(db: Session, relationship_id: UUID, user: str | None, ip: str | None, agent: str | None) -> None:
-    operator = _operator(user)
+def delete_relationship(db: Session, relationship_id: UUID, user: User, ip: str | None, agent: str | None) -> None:
+    operator = user.id
     relation = db.scalar(select(ObjectRelationship).where(ObjectRelationship.id == relationship_id, ObjectRelationship.deleted_at.is_(None)))
     if relation is None:
         raise ServiceError(404, "RelationshipNotFound", "关系不存在")
+    require_organization_write_access(db, user, _active_object(db, relation.source_object_id))
+    require_organization_write_access(db, user, _active_object(db, relation.target_object_id))
     before = {key: _json_value(getattr(relation, key)) for key in ("id", "source_object_id", "relation_type_id", "target_object_id", "attributes", "status")}
     relation.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
     relation.deleted_by = operator

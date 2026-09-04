@@ -18,7 +18,8 @@ from app.schemas.assets import (AssetReceive, CompleteTransfer, DeployAsset, Inv
                                 PurchaseRequestCreate, RecoverAsset, RetireAsset,
                                 StockAsset, TransferAsset)
 from app.services.core import _operator
-from app.services.resource_scope import has_global_resource_access, organization_scope
+from app.services.resource_scope import (creation_organizations, has_global_resource_access,
+                                         organization_scope, require_organization_write_access)
 
 ALLOWED_TRANSITIONS = {
     "REQUESTED": {"APPROVED"}, "APPROVED": {"ORDERED"},
@@ -124,14 +125,15 @@ def decide_purchase(db: Session, request_id: UUID, payload: PurchaseDecision | P
     return request
 
 
-def _create_object(db: Session, item: AssetReceive, operator: UUID | None) -> InfrastructureObject:
+def _create_object(db: Session, item: AssetReceive, operator: UUID | None,
+                   owner_org_id: UUID | None, operator_org_id: UUID | None) -> InfrastructureObject:
     if db.scalar(select(ObjectType.id).where(ObjectType.id == item.object_type_id, ObjectType.deleted_at.is_(None))) is None:
         raise ServiceError(400, "InvalidObjectType", "对象类型不存在")
     obj = InfrastructureObject(
         object_type_id=item.object_type_id, name=item.name, serial_number=item.serial_number,
         asset_number=item.asset_number, manufacturer=item.manufacturer, model=item.model,
         status="PLANNED", ownership="OWNED", management_scope="NO_ACCESS",
-        owner_org_id=item.owner_org_id, operator_org_id=item.operator_org_id,
+        owner_org_id=owner_org_id, operator_org_id=operator_org_id,
         maintainer_org_id=item.maintainer_org_id, created_by=operator, updated_by=operator,
     )
     db.add(obj)
@@ -141,18 +143,23 @@ def _create_object(db: Session, item: AssetReceive, operator: UUID | None) -> In
     return obj
 
 
-def receive_assets(db: Session, items: list[AssetReceive], header_user: str | None) -> list[Asset]:
-    operator = _required_user(db, None, header_user, "验收操作人")
+def receive_assets(db: Session, items: list[AssetReceive], user: User) -> list[Asset]:
+    operator = _required_user(db, None, str(user.id), "验收操作人")
     results: list[Asset] = []
     for item in items:
+        owner_org_id, operator_org_id = creation_organizations(
+            db, user, item.owner_org_id, item.operator_org_id
+        )
         purchase = db.get(PurchaseRequest, item.purchase_request_id)
         if purchase is None:
             raise ServiceError(404, "PurchaseRequestNotFound", "采购申请不存在")
         if purchase.status != "APPROVED":
             raise ServiceError(409, "PurchaseNotApproved", "采购申请未批准，不能到货验收")
-        obj = db.scalar(select(InfrastructureObject).where(InfrastructureObject.id == item.object_id, InfrastructureObject.deleted_at.is_(None))) if item.object_id else _create_object(db, item, operator)
+        obj = db.scalar(select(InfrastructureObject).where(InfrastructureObject.id == item.object_id, InfrastructureObject.deleted_at.is_(None))) if item.object_id else _create_object(db, item, operator, owner_org_id, operator_org_id)
         if obj is None:
             raise ServiceError(404, "ObjectNotFound", "关联对象不存在")
+        if item.object_id:
+            require_organization_write_access(db, user, obj)
         if db.scalar(select(Asset.id).where(Asset.object_id == obj.id, Asset.deleted_at.is_(None))):
             raise ServiceError(409, "ObjectAlreadyHasAsset", "对象已关联资产记录")
         asset = Asset(
@@ -163,8 +170,8 @@ def receive_assets(db: Session, items: list[AssetReceive], header_user: str | No
             warranty_start_date=item.warranty_start_date, warranty_end_date=item.warranty_end_date,
             warranty_provider=item.warranty_provider, service_level=item.service_level,
             cost=item.cost, currency=item.currency or purchase.currency,
-            owner_org_id=item.owner_org_id or obj.owner_org_id,
-            operator_org_id=item.operator_org_id or obj.operator_org_id,
+            owner_org_id=owner_org_id if not has_global_resource_access(db, user) else item.owner_org_id or obj.owner_org_id,
+            operator_org_id=operator_org_id if not has_global_resource_access(db, user) else item.operator_org_id or obj.operator_org_id,
             maintainer_org_id=item.maintainer_org_id or obj.maintainer_org_id,
             created_by=operator, updated_by=operator,
         )
@@ -187,14 +194,15 @@ def create_inventory_location(db: Session, payload: InventoryLocationCreate) -> 
     return item
 
 
-def stock_asset(db: Session, asset_id: UUID, payload: StockAsset, header_user: str | None) -> Asset:
+def stock_asset(db: Session, asset_id: UUID, payload: StockAsset, user: User) -> Asset:
     asset = _active_asset(db, asset_id)
+    require_organization_write_access(db, user, asset)
     _require_transition(asset, "STOCK")
     _require_version(asset, payload.version)
     location = db.scalar(select(InventoryLocation).where(InventoryLocation.id == payload.inventory_location_id, InventoryLocation.deleted_at.is_(None)))
     if location is None:
         raise ServiceError(404, "InventoryLocationNotFound", "库存位置不存在")
-    operator = _required_user(db, payload.operator_id, header_user, "库存操作人")
+    operator = _required_user(db, payload.operator_id, str(user.id), "库存操作人")
     old = asset.lifecycle_status
     asset.lifecycle_status, asset.inventory_location_id = "STOCK", location.id
     asset.version += 1
@@ -206,14 +214,15 @@ def stock_asset(db: Session, asset_id: UUID, payload: StockAsset, header_user: s
     return asset
 
 
-def transfer_asset(db: Session, asset_id: UUID, payload: TransferAsset, header_user: str | None) -> Asset:
+def transfer_asset(db: Session, asset_id: UUID, payload: TransferAsset, user: User) -> Asset:
     asset = _active_asset(db, asset_id)
+    require_organization_write_access(db, user, asset)
     _require_transition(asset, "TRANSFERRED")
     _require_version(asset, payload.version)
     if payload.target_organization_id is not None:
         if db.scalar(select(Organization.id).where(Organization.id == payload.target_organization_id, Organization.deleted_at.is_(None))) is None:
             raise ServiceError(404, "OrganizationNotFound", "目标组织不存在")
-    operator = _required_user(db, payload.operator_id, header_user, "调拨操作人")
+    operator = _required_user(db, payload.operator_id, str(user.id), "调拨操作人")
     old, old_location = asset.lifecycle_status, asset.inventory_location_id
     if old_location is not None:
         db.add(InventoryRecord(
@@ -234,18 +243,20 @@ def transfer_asset(db: Session, asset_id: UUID, payload: TransferAsset, header_u
     return asset
 
 
-def complete_transfer(db: Session, asset_id: UUID, payload: CompleteTransfer, header_user: str | None) -> Asset:
+def complete_transfer(db: Session, asset_id: UUID, payload: CompleteTransfer, user: User) -> Asset:
     asset = _active_asset(db, asset_id)
+    require_organization_write_access(db, user, asset)
     if asset.lifecycle_status not in {"TRANSFERRED", "RECOVERED"}:
         raise ServiceError(409, "InvalidAssetTransition", f"资产状态 {asset.lifecycle_status} 不能转换为 STOCK")
-    return stock_asset(db, asset_id, payload, header_user)
+    return stock_asset(db, asset_id, payload, user)
 
 
-def retire_asset(db: Session, asset_id: UUID, payload: RetireAsset, header_user: str | None) -> Asset:
+def retire_asset(db: Session, asset_id: UUID, payload: RetireAsset, user: User) -> Asset:
     asset = _active_asset(db, asset_id)
+    require_organization_write_access(db, user, asset)
     _require_transition(asset, "RETIRED")
     _require_version(asset, payload.version)
-    operator = _required_user(db, payload.operator_id, header_user, "退役操作人")
+    operator = _required_user(db, payload.operator_id, str(user.id), "退役操作人")
     obj = db.get(InfrastructureObject, asset.object_id)
     old = asset.lifecycle_status
     asset.lifecycle_status, asset.inventory_location_id = "RETIRED", None
@@ -269,11 +280,12 @@ def retire_asset(db: Session, asset_id: UUID, payload: RetireAsset, header_user:
     return asset
 
 
-def recover_asset(db: Session, asset_id: UUID, payload: RecoverAsset, header_user: str | None) -> Asset:
+def recover_asset(db: Session, asset_id: UUID, payload: RecoverAsset, user: User) -> Asset:
     asset = _active_asset(db, asset_id)
+    require_organization_write_access(db, user, asset)
     _require_transition(asset, "RECOVERED")
     _require_version(asset, payload.version)
-    operator = _required_user(db, payload.operator_id, header_user, "退役撤销操作人")
+    operator = _required_user(db, payload.operator_id, str(user.id), "退役撤销操作人")
     obj = db.get(InfrastructureObject, asset.object_id)
     old = asset.lifecycle_status
     asset.lifecycle_status = "RECOVERED"
@@ -288,8 +300,9 @@ def recover_asset(db: Session, asset_id: UUID, payload: RecoverAsset, header_use
     return asset
 
 
-def deploy_asset(db: Session, asset_id: UUID, payload: DeployAsset, header_user: str | None) -> Asset:
+def deploy_asset(db: Session, asset_id: UUID, payload: DeployAsset, user: User) -> Asset:
     asset = _active_asset(db, asset_id)
+    require_organization_write_access(db, user, asset)
     # The Phase 3 deploy action intentionally collapses transport/install into one
     # accepted deployment while retaining DEPLOYED and ACTIVE as separate events.
     _require_transition(asset, "DEPLOYED")
@@ -299,10 +312,11 @@ def deploy_asset(db: Session, asset_id: UUID, payload: DeployAsset, header_user:
     rack_type = db.scalar(select(ObjectType.name).where(ObjectType.id == location.object_type_id)) if location else None
     if location is None or rack_type != "RACK":
         raise ServiceError(422, "InvalidDeploymentLocation", "部署位置必须是有效的 Rack 对象")
+    require_organization_write_access(db, user, location)
     relation_type = db.scalar(select(RelationshipType).where(RelationshipType.name == "installed_in", RelationshipType.deleted_at.is_(None)))
     if relation_type is None:
         raise ServiceError(409, "RelationshipTypeMissing", "缺少 installed_in 关系类型")
-    operator = _required_user(db, payload.deployed_by, header_user, "部署操作人")
+    operator = _required_user(db, payload.deployed_by, str(user.id), "部署操作人")
     deployment = Deployment(asset_id=asset.id, object_id=obj.id, location_id=location.id, deployment_type=payload.deployment_type, status="COMPLETED", acceptance_status="ACCEPTED", deployed_by=operator, deployed_at=_now(), notes=payload.notes)
     db.add(deployment)
     db.flush()

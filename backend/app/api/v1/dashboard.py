@@ -6,12 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.core.security import require_permission
-from app.models import Asset, InfrastructureObject, KnowledgeArticle, ObjectType, Organization, WorkOrder
+from app.models import Asset, InfrastructureObject, KnowledgeArticle, ObjectType, Organization, User, WorkOrder
+from app.services.resource_scope import has_global_resource_access, organization_scope
 
 router = APIRouter(tags=["dashboard", "search"])
-
-# TODO(resource-scope): dashboard aggregates span objects, assets, and work orders;
-# apply organization scope after cross-domain work-order ownership is defined.
 
 OPEN_STATUSES = ("CREATED", "ASSIGNED", "PROCESSING", "WAITING", "SUSPENDED", "REOPENED")
 
@@ -37,15 +35,20 @@ def _operations_summary(db: Session) -> dict:
     }
 
 
-@router.get("/dashboard/overview", dependencies=[Depends(require_permission("dashboard.read"))])
-def dashboard_overview(db: Session = Depends(get_db)):
+@router.get("/dashboard/overview")
+def dashboard_overview(db: Session = Depends(get_db), user: User = Depends(require_permission("dashboard.read"))):
+    object_filters = [InfrastructureObject.deleted_at.is_(None), ObjectType.deleted_at.is_(None)]
+    asset_filters = [Asset.deleted_at.is_(None)]
+    if not has_global_resource_access(db, user):
+        object_filters.append(organization_scope(InfrastructureObject, user.organization_id))
+        asset_filters.append(organization_scope(Asset, user.organization_id))
     object_distribution = _distribution(
         db,
-        select(ObjectType.name, func.count(InfrastructureObject.id)).join(InfrastructureObject, InfrastructureObject.object_type_id == ObjectType.id).where(InfrastructureObject.deleted_at.is_(None), ObjectType.deleted_at.is_(None)).group_by(ObjectType.name).order_by(ObjectType.name),
+        select(ObjectType.name, func.count(InfrastructureObject.id)).join(InfrastructureObject, InfrastructureObject.object_type_id == ObjectType.id).where(*object_filters).group_by(ObjectType.name).order_by(ObjectType.name),
         "type",
     )
     asset_distribution = _distribution(
-        db, select(Asset.lifecycle_status, func.count()).where(Asset.deleted_at.is_(None)).group_by(Asset.lifecycle_status).order_by(Asset.lifecycle_status), "status"
+        db, select(Asset.lifecycle_status, func.count()).where(*asset_filters).group_by(Asset.lifecycle_status).order_by(Asset.lifecycle_status), "status"
     )
     return {
         "devices": {"total": sum(item["count"] for item in object_distribution), "by_type": object_distribution},
@@ -54,18 +57,20 @@ def dashboard_overview(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/dashboard/assets", dependencies=[Depends(require_permission("dashboard.read"))])
-def dashboard_assets(db: Session = Depends(get_db)):
-    active = Asset.deleted_at.is_(None)
-    by_status = _distribution(db, select(Asset.lifecycle_status, func.count()).where(active).group_by(Asset.lifecycle_status).order_by(Asset.lifecycle_status), "status")
+@router.get("/dashboard/assets")
+def dashboard_assets(db: Session = Depends(get_db), user: User = Depends(require_permission("dashboard.read"))):
+    filters = [Asset.deleted_at.is_(None)]
+    if not has_global_resource_access(db, user):
+        filters.append(organization_scope(Asset, user.organization_id))
+    by_status = _distribution(db, select(Asset.lifecycle_status, func.count()).where(*filters).group_by(Asset.lifecycle_status).order_by(Asset.lifecycle_status), "status")
     by_type = _distribution(
         db,
-        select(ObjectType.name, func.count(Asset.id)).join(InfrastructureObject, Asset.object_id == InfrastructureObject.id).join(ObjectType, InfrastructureObject.object_type_id == ObjectType.id).where(active, InfrastructureObject.deleted_at.is_(None), ObjectType.deleted_at.is_(None)).group_by(ObjectType.name).order_by(ObjectType.name),
+        select(ObjectType.name, func.count(Asset.id)).join(InfrastructureObject, Asset.object_id == InfrastructureObject.id).join(ObjectType, InfrastructureObject.object_type_id == ObjectType.id).where(*filters, InfrastructureObject.deleted_at.is_(None), ObjectType.deleted_at.is_(None)).group_by(ObjectType.name).order_by(ObjectType.name),
         "type",
     )
     by_org = _distribution(
         db,
-        select(Organization.name, func.count(Asset.id)).outerjoin(Organization, Asset.owner_org_id == Organization.id).where(active).group_by(Organization.name).order_by(Organization.name),
+        select(Organization.name, func.count(Asset.id)).outerjoin(Organization, Asset.owner_org_id == Organization.id).where(*filters).group_by(Organization.name).order_by(Organization.name),
         "organization",
     )
     return {"total": sum(item["count"] for item in by_status), "by_status": by_status, "by_type": by_type, "by_organization": by_org}

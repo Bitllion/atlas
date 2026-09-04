@@ -13,8 +13,9 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ServiceError
-from app.models import ImportError, ImportJob, InfrastructureObject, ObjectHistory, ObjectSpec, ObjectType
+from app.models import ImportError, ImportJob, InfrastructureObject, ObjectHistory, ObjectSpec, ObjectType, User
 from app.services.core import _operator, _snapshot
+from app.services.resource_scope import creation_organizations
 
 TEMPLATE_COLUMNS = ("name", "object_type", "serial_number", "asset_number", "manufacturer", "model", "status", "ownership", "management_scope", "spec")
 OBJECT_STATUSES = {"PLANNED", "ACTIVE", "INACTIVE", "MAINTENANCE", "RETIRED"}
@@ -133,7 +134,7 @@ def job_errors(db: Session, job_id: UUID) -> list[ImportError]:
     return list(db.scalars(select(ImportError).where(ImportError.import_job_id == job_id).order_by(ImportError.row_number, ImportError.created_at)))
 
 
-def execute(db: Session, job_id: UUID, user: str | None) -> ImportJob:
+def execute(db: Session, job_id: UUID, user: User) -> ImportJob:
     job = db.scalar(select(ImportJob).where(ImportJob.id == job_id, ImportJob.deleted_at.is_(None)))
     if job is None:
         raise ServiceError(404, "ImportNotFound", "导入任务不存在")
@@ -149,13 +150,17 @@ def execute(db: Session, job_id: UUID, user: str | None) -> ImportJob:
         return job
     job.status = "EXECUTING"
     db.flush()
-    operator = _operator(user)
+    operator = user.id
+    owner_org_id, _ = creation_organizations(db, user, None, None)
     try:
         with db.begin_nested():
             for item in job.preview_data["rows"]:
                 data = item["data"]
                 spec_data = data.pop("spec_data", {})
-                obj = InfrastructureObject(**data, created_by=operator, updated_by=operator)
+                obj = InfrastructureObject(
+                    **data, owner_org_id=owner_org_id,
+                    created_by=operator, updated_by=operator,
+                )
                 db.add(obj)
                 db.flush()
                 db.add(ObjectSpec(object_id=obj.id, spec_data=spec_data, data_source="IMPORT", confidence="MEDIUM", data_status="UNKNOWN", operator_id=operator))
