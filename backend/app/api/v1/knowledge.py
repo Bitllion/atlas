@@ -3,8 +3,10 @@
 from pathlib import Path
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -15,6 +17,7 @@ from app.core.security import actor_id, get_current_user_optional, require_permi
 from app.models import ArticleAttachment, KnowledgeArticle, User
 from app.schemas.knowledge import ArticleCreate, ArticleStatus, ArticleType, ArticleUpdate, ObjectLinks
 from app.services import knowledge as service
+from app.services import knowledge_ai
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
@@ -97,3 +100,102 @@ def unlink_objects(article_id: UUID, payload: ObjectLinks, db: Session = Depends
 def get_links(article_id: UUID, db: Session = Depends(get_db)):
     article = service.active_article(db, article_id)
     return {"items": service.links_out(db, article.id)}
+
+
+class AskRequest(BaseModel):
+    question: str
+
+
+class SourceArticle(BaseModel):
+    id: str
+    title: str
+    type: str
+    summary: str
+
+
+class AskResponse(BaseModel):
+    answer: str | None
+    configured: bool
+    sources: list[SourceArticle]
+
+
+@router.post("/ask", dependencies=[Depends(require_permission("knowledge.read"))])
+def ask_question(payload: AskRequest, db: Session = Depends(get_db)) -> AskResponse:
+    """AI-powered knowledge question answering with fallback to source-only mode."""
+    from app.config.settings import settings as current_settings
+
+    # Search for relevant articles
+    search_results = knowledge_ai.search_articles(db, payload.question, limit=5)
+    sources = [
+        SourceArticle(
+            id=result["id"],
+            title=result["title"],
+            type=result["type"],
+            summary=result["summary"]
+        )
+        for result in search_results
+    ]
+
+    # Check if LLM is configured
+    llm_configured = bool(current_settings.llm_api_key and current_settings.llm_base_url and current_settings.llm_model)
+
+    if not llm_configured:
+        # Return sources only without LLM answer
+        return AskResponse(
+            answer=None,
+            configured=False,
+            sources=sources
+        )
+
+    # Attempt LLM call
+    try:
+        # Build prompt with sources
+        context_parts = []
+        for idx, result in enumerate(search_results, 1):
+            context_parts.append(f"[来源{idx}] {result['title']} ({result['type']})\n{result['content'][:500]}\n")
+
+        context = "\n".join(context_parts) if context_parts else "未找到相关资料。"
+
+        prompt = f"""你是 Atlas 基础设施知识助手。请基于以下资料回答用户问题，并在回答中标注来源编号（如[来源1]）。
+
+资料：
+{context}
+
+用户问题：{payload.question}
+
+请提供准确、简洁的回答。如果资料中没有相关信息，请明确说明。"""
+
+        # Call OpenAI-compatible API
+        response = httpx.post(
+            f"{current_settings.llm_base_url.rstrip('/')}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {current_settings.llm_api_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": current_settings.llm_model,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.7
+            },
+            timeout=20.0
+        )
+        response.raise_for_status()
+        data = response.json()
+        answer = data["choices"][0]["message"]["content"]
+
+        return AskResponse(
+            answer=answer,
+            configured=True,
+            sources=sources
+        )
+
+    except Exception:
+        # Fallback to sources-only mode on any error
+        return AskResponse(
+            answer=None,
+            configured=True,
+            sources=sources
+        )
+
