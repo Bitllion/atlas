@@ -1,76 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { importApi } from '../api/imports'
-import type { ImportPreview } from '../types'
-
-const router = useRouter()
-const file = ref<File | null>(null)
-const preview = ref<ImportPreview | null>(null)
-const uploading = ref(false)
-const executing = ref(false)
-const completed = ref(false)
-const selectedFilename = computed(() => file.value?.name || '')
+import { computed, ref } from 'vue'; import { useRouter } from 'vue-router'; import { IconFile, IconHistory, IconUpload } from '@arco-design/web-vue/es/icon'; import { Modal } from '@arco-design/web-vue'; import { importApi } from '../api/imports'; import type { ImportPreview } from '../types'
+const router = useRouter(), fileInput = ref<HTMLInputElement | null>(null); const file = ref<File | null>(null), preview = ref<ImportPreview | null>(null), uploading = ref(false), executing = ref(false), completed = ref(false)
 const canExecute = computed(() => preview.value && preview.value.failed_count === 0 && preview.value.status === 'PREVIEWED')
-
-function selectFile(event: Event) {
-  const selected = (event.target as HTMLInputElement).files?.[0] || null
-  file.value = selected
-  preview.value = null
-  completed.value = false
-}
-
-async function upload() {
-  if (!file.value) return
-  uploading.value = true
-  try {
-    const { data } = await importApi.preview(file.value)
-    preview.value = data
-  } finally { uploading.value = false }
-}
-
-async function execute() {
-  if (!preview.value || !canExecute.value) return
-  if (!window.confirm(`确认导入 ${preview.value.total_count} 条对象数据吗？`)) return
-  executing.value = true
-  try {
-    const { data } = await importApi.execute(preview.value.import_id)
-    preview.value = data
-    completed.value = data.status === 'SUCCEEDED'
-  } finally { executing.value = false }
-}
+function selectFile(event: Event) { file.value = (event.target as HTMLInputElement).files?.[0] || null; preview.value = null; completed.value = false }
+async function upload() { if (!file.value) return; uploading.value = true; try { preview.value = (await importApi.preview(file.value)).data } finally { uploading.value = false } }
+function confirmExecute() { if (!preview.value || !canExecute.value) return; Modal.confirm({ title: '确认导入', content: `确认导入 ${preview.value.total_count} 条对象数据吗？`, okText: '确认导入', cancelText: '取消', onOk: execute }) }
+async function execute() { if (!preview.value || !canExecute.value) return; executing.value = true; try { const { data } = await importApi.execute(preview.value.import_id); preview.value = data; completed.value = data.status === 'SUCCEEDED' } finally { executing.value = false } }
 </script>
-
-<template>
-  <section class="page narrow">
-    <header class="page-header"><div><p class="eyebrow">DATA INGESTION</p><h1>数据导入</h1><p class="muted">上传设备清单，校验无误后批量创建基础设施对象</p></div><RouterLink class="button" to="/imports">导入历史</RouterLink></header>
-
-    <div class="card upload-card">
-      <div><h2>上传文件</h2><p class="muted">支持 .xlsx、.csv，文件首行为模板列名。</p></div>
-      <label class="file-picker"><span>{{ selectedFilename || '选择 Excel 或 CSV 文件' }}</span><input type="file" accept=".xlsx,.csv" @change="selectFile" /></label>
-      <button class="button primary" :disabled="!file || uploading" @click="upload">{{ uploading ? '正在校验…' : '上传并预览' }}</button>
-    </div>
-    <div class="template-hint"><strong>模板列</strong><code>name, object_type, serial_number, asset_number, manufacturer, model, status, ownership, management_scope, spec</code><span>其中 name、object_type 必填；spec 填写 JSON 对象字符串。</span></div>
-
-    <template v-if="preview">
-      <div class="result-heading"><div><h2>预览结果</h2><span class="status" :class="preview.failed_count ? 'failed' : 'succeeded'">{{ preview.failed_count ? '校验未通过' : '校验通过' }}</span></div><span class="muted">任务 ID：{{ preview.import_id }}</span></div>
-      <div class="summary-grid import-summary">
-        <div class="summary-card"><strong>{{ preview.total_count }}</strong><span>总行数</span></div>
-        <div class="summary-card success"><strong>{{ preview.success_count }}</strong><span>校验成功</span></div>
-        <div class="summary-card failure"><strong>{{ preview.failed_count }}</strong><span>校验失败</span></div>
-      </div>
-
-      <div v-if="preview.errors.length" class="card table-card error-card">
-        <div class="section-title"><h3>错误列表</h3><span class="muted">请修正源文件后重新上传；存在错误时不会写入任何对象。</span></div>
-        <div class="table-scroll"><table><thead><tr><th>行号</th><th>字段</th><th>错误类型</th><th>错误信息</th></tr></thead><tbody><tr v-for="(item, index) in preview.errors" :key="`${item.row}-${item.field}-${index}`"><td>{{ item.row }}</td><td>{{ item.field || '—' }}</td><td>{{ item.error_type }}</td><td class="error-message">{{ item.message }}</td></tr></tbody></table></div>
-      </div>
-      <div v-else class="ready-card card"><span class="ready-icon">✓</span><div><strong>{{ completed ? '导入已完成' : '文件校验通过' }}</strong><p>{{ completed ? `已成功导入 ${preview.success_count} 条对象数据。` : '所有数据均符合要求，可以确认导入。' }}</p></div></div>
-
-      <div class="import-actions">
-        <span v-if="preview.failed_count" class="field-error">请修正全部错误并重新上传后再确认导入。</span>
-        <RouterLink v-if="completed" class="button primary" to="/objects">查看对象列表</RouterLink>
-        <button v-else class="button primary" :disabled="!canExecute || executing" @click="execute">{{ executing ? '正在导入…' : '确认导入' }}</button>
-      </div>
-    </template>
-  </section>
-</template>
+<template><section class="page arco-page"><header class="page-header"><div><p class="eyebrow">数据接入</p><h1>数据导入</h1><p class="muted">上传设备清单，校验无误后批量创建基础设施对象</p></div><a-button @click="router.push('/imports')"><template #icon><IconHistory /></template>导入历史</a-button></header>
+  <a-card class="arco-upload-card" :bordered="false"><div class="upload-copy"><span class="upload-icon"><IconUpload /></span><div><h3>上传文件</h3><p>支持 .xlsx、.csv，文件首行为模板列名</p></div></div><input ref="fileInput" class="hidden-file-input" type="file" accept=".xlsx,.csv" @change="selectFile" /><a-space><a-button @click="fileInput?.click()"><template #icon><IconFile /></template>{{ file?.name || '选择文件' }}</a-button><a-button type="primary" :disabled="!file" :loading="uploading" @click="upload">上传并预览</a-button></a-space></a-card>
+  <a-alert class="template-alert" type="info" title="导入模板列">name, object_type, serial_number, asset_number, manufacturer, model, status, ownership, management_scope, spec。其中 name、object_type 必填；spec 填写 JSON 对象字符串。</a-alert>
+  <template v-if="preview"><div class="result-title"><div><h2>预览结果</h2><a-tag :color="preview.failed_count ? 'red' : 'green'">{{ preview.failed_count ? '校验未通过' : completed ? '导入已完成' : '校验通过' }}</a-tag></div><span class="muted">任务 ID：{{ preview.import_id }}</span></div><div class="arco-import-stats"><a-card :bordered="false"><a-statistic title="总行数" :value="preview.total_count" /></a-card><a-card :bordered="false"><a-statistic title="校验成功" :value="preview.success_count" :value-style="{ color: '#00b42a' }" /></a-card><a-card :bordered="false"><a-statistic title="校验失败" :value="preview.failed_count" :value-style="{ color: '#f53f3f' }" /></a-card></div>
+    <a-alert v-if="preview.errors.length" class="import-error-alert" type="error" title="文件校验未通过">请修正源文件后重新上传；存在错误时不会写入任何对象。</a-alert><a-card v-if="preview.errors.length" class="arco-table-card" :bordered="false"><a-table :data="preview.errors" :pagination="false" :scroll="{ x: 800 }"><template #columns><a-table-column title="行号" data-index="row" :width="90" /><a-table-column title="字段" :width="160"><template #cell="{ record }">{{ record.field || '—' }}</template></a-table-column><a-table-column title="错误类型" data-index="error_type" :width="180" /><a-table-column title="错误信息" data-index="message" /></template></a-table></a-card><a-alert v-else type="success" :title="completed ? '导入已完成' : '文件校验通过'">{{ completed ? `已成功导入 ${preview.success_count} 条对象数据。` : '所有数据均符合要求，可以确认导入。' }}</a-alert>
+    <div class="import-actions"><a-button v-if="completed" type="primary" @click="router.push('/objects')">查看对象列表</a-button><a-button v-else type="primary" :disabled="!canExecute" :loading="executing" @click="confirmExecute">确认导入</a-button></div>
+  </template>
+</section></template>

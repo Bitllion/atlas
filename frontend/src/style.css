@@ -177,4 +177,26 @@ th, td { padding: 13px 14px; border-bottom: 1px solid #e8ebf0; white-space: nowr
 .object-name { font-weight: 500; }
 .table-actions { display: flex; gap: 2px; }
 .arco-pagination { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-top: 1px solid #e5e6eb; color: #86909c; font-size: 13px; }
+.detail-back { margin: -8px 0 12px -12px; }
+.detail-spin { display: block; min-height: 320px; }
+.arco-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.arco-detail-grid > .arco-card, .arco-lifecycle-card, .arco-upload-card, .arco-import-stats > .arco-card { border-radius: 8px; box-shadow: 0 1px 3px rgb(0 0 0 / 4%); }
+.arco-lifecycle-card { margin-top: 16px; }
+.arco-lifecycle-card .arco-timeline { padding-top: 8px; }
+.event-json { overflow: auto; margin: 0; color: #4e5969; font-size: 12px; white-space: pre-wrap; }
+.modal-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.modal-eyebrow { margin: -4px 0 16px; color: #165dff; font-size: 12px; }
+.inline-location-card { margin: 8px 0 16px; background: #f7f8fa; }
+.purchase-items-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.arco-purchase-item { display: grid; grid-template-columns: 2fr 1.5fr 120px 160px 36px; align-items: center; gap: 12px; margin-bottom: 10px; padding: 12px 12px 0; border: 1px solid #e5e6eb; border-radius: 6px; background: #f7f8fa; }
+.arco-upload-card { margin-bottom: 16px; }
+.arco-upload-card > .arco-card-body { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 24px; }
+.upload-copy { display: flex; align-items: center; gap: 14px; }
+.upload-copy h3, .upload-copy p { margin: 0; }.upload-copy p { margin-top: 5px; color: #86909c; font-size: 13px; }
+.upload-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 8px; color: #165dff; background: #e8f3ff; font-size: 21px; }
+.hidden-file-input { display: none; }.template-alert { margin-bottom: 24px; }
+.result-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }.result-title > div { display: flex; align-items: center; gap: 12px; }.result-title h2 { margin: 0; font-size: 20px; }
+.arco-import-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }.arco-import-stats .arco-card-body { padding: 20px 24px; }
+.import-error-alert { margin-bottom: 16px; }.modal-table-total { margin: 12px 0 0; color: #86909c; font-size: 12px; text-align: right; }
 @media (max-width: 1250px) { .arco-metric-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 900px) { .arco-detail-grid, .arco-import-stats { grid-template-columns: 1fr; }.arco-purchase-item { grid-template-columns: 1fr 1fr; }.arco-upload-card > .arco-card-body { align-items: stretch; flex-direction: column; }.modal-form-grid { grid-template-columns: 1fr; } }
