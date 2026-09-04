@@ -124,3 +124,26 @@ export interface WorkOrder {
   version: number; created_at: string; updated_at: string
 }
 export interface WorkOrderDetail extends WorkOrder { repairs: RepairRecord[]; replacements: ReplacementEvent[]; timeline: WorkOrderTimelineEvent[] }
+
+export interface DistributionItem { count: number; type?: string; status?: string; organization?: string; priority?: string }
+export interface OperationsSummary { total: number; open: number; new_this_month: number; resolved: number; average_repair_hours: number; by_status?: DistributionItem[]; by_priority?: DistributionItem[] }
+export interface DashboardOverview {
+  devices: { total: number; by_type: DistributionItem[] }
+  assets: { total: number; by_status: DistributionItem[] }
+  work_orders: OperationsSummary
+}
+export interface DashboardAssets { total: number; by_status: DistributionItem[]; by_type: DistributionItem[]; by_organization: DistributionItem[] }
+
+export type ArticleType = 'SOP' | 'TROUBLESHOOTING' | 'FAQ' | 'BEST_PRACTICE'
+export type ArticleStatus = 'DRAFT' | 'UNDER_REVIEW' | 'PUBLISHED' | 'ARCHIVED'
+export interface ArticleAttachment { id: string; article_id: string; file_name: string; file_path: string; file_size: number; uploaded_by: string; created_at: string }
+export interface ArticleLink { id: string; related_type: 'OBJECT'; related_id: string; relation_reason: string | null; object_name: string | null; created_at: string }
+export interface KnowledgeArticle {
+  id: string; title: string; content: string; type: ArticleType; status: ArticleStatus; version: number
+  is_latest: boolean; author_id: string; reviewer_id: string | null; reviewed_at: string | null
+  published_at: string | null; archived_at: string | null; tags: string[] | null; created_at: string; updated_at: string
+}
+export interface KnowledgeArticleDetail extends KnowledgeArticle { attachments: ArticleAttachment[]; links: ArticleLink[] }
+export interface ArticlePayload { title: string; content: string; type: ArticleType; tags: string[] | null }
+export interface SearchItem { resource_type: 'object' | 'asset' | 'work_order' | 'knowledge_article'; id: string; name: string; summary: string | null }
+export interface SearchResult extends Page<SearchItem> { query: string }

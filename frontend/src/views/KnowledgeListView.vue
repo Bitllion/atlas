@@ -1,0 +1,13 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { knowledgeApi } from '../api/knowledge'
+import type { KnowledgeArticle } from '../types'
+const router=useRouter(),items=ref<KnowledgeArticle[]>([]),loading=ref(false),total=ref(0),page=ref(1),type=ref(''),status=ref(''),pageSize=20
+const totalPages=computed(()=>Math.max(1,Math.ceil(total.value/pageSize)))
+const typeName:Record<string,string>={SOP:'标准操作流程',TROUBLESHOOTING:'故障排查',FAQ:'常见问题',BEST_PRACTICE:'最佳实践'},statusName:Record<string,string>={DRAFT:'草稿',UNDER_REVIEW:'审核中',PUBLISHED:'已发布',ARCHIVED:'已归档'}
+async function load(){loading.value=true;try{const {data}=await knowledgeApi.list({page:page.value,page_size:pageSize,type:type.value||undefined,status:status.value||undefined});items.value=data.items;total.value=data.total}finally{loading.value=false}}
+function filter(){page.value=1;void load()} function format(v:string){return new Date(v).toLocaleString('zh-CN')}
+onMounted(load)
+</script>
+<template><section class="page"><header class="page-header"><div><p class="eyebrow">KNOWLEDGE CENTER</p><h1>知识库</h1><p class="muted">沉淀基础设施运维经验与标准流程</p></div><RouterLink class="button primary" to="/knowledge/new">+ 新建文章</RouterLink></header><form class="filter-bar card" @submit.prevent="filter"><label><span>文章分类</span><select v-model="type"><option value="">全部分类</option><option v-for="(name,value) in typeName" :key="value" :value="value">{{name}}</option></select></label><label><span>发布状态</span><select v-model="status"><option value="">全部状态</option><option v-for="(name,value) in statusName" :key="value" :value="value">{{name}}</option></select></label><button class="button">查询</button></form><div class="card table-card"><div v-if="loading" class="empty">正在加载…</div><div v-else-if="!items.length" class="empty">暂无知识文章</div><div v-else class="table-scroll"><table><thead><tr><th>标题</th><th>分类</th><th>状态</th><th>标签</th><th>创建时间</th><th>更新时间</th></tr></thead><tbody><tr v-for="item in items" :key="item.id" class="clickable" @click="router.push(`/knowledge/${item.id}`)"><td class="name-cell">{{item.title}}</td><td>{{typeName[item.type]}}</td><td><span class="status" :class="item.status.toLowerCase()">{{statusName[item.status]}}</span></td><td>{{item.tags?.join('、')||'—'}}</td><td>{{format(item.created_at)}}</td><td>{{format(item.updated_at)}}</td></tr></tbody></table></div><footer class="pagination"><span>共 {{total}} 条</span><div><button :disabled="page<=1" @click="page--;load()">上一页</button><span>第 {{page}} / {{totalPages}} 页</span><button :disabled="page>=totalPages" @click="page++;load()">下一页</button></div></footer></div></section></template>
